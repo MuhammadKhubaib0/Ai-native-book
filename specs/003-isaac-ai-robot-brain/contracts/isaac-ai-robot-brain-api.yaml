@@ -1,0 +1,461 @@
+openapi: 3.0.0
+info:
+  title: Isaac AI Robot Brain Educational Content API
+  description: API for managing educational content related to NVIDIA Isaac for robotics education
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+  - url: https://staging-api.example.com/v1
+    description: Staging server
+
+paths:
+  /isaac-sim/chapters:
+    get:
+      summary: Get Isaac Sim chapters
+      description: Retrieve all chapters related to NVIDIA Isaac Sim
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+          description: Number of items per page
+      responses:
+        '200':
+          description: A list of Isaac Sim chapters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Chapter'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+  /isaac-ros/chapters:
+    get:
+      summary: Get Isaac ROS chapters
+      description: Retrieve all chapters related to Isaac ROS for perception
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+          description: Number of items per page
+      responses:
+        '200':
+          description: A list of Isaac ROS chapters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Chapter'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /synthetic-data/chapters:
+    get:
+      summary: Get Synthetic Data chapters
+      description: Retrieve all chapters related to synthetic data generation
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+          description: Number of items per page
+      responses:
+        '200':
+          description: A list of Synthetic Data chapters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Chapter'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /nav2-humanoid/chapters:
+    get:
+      summary: Get Nav2 Humanoid Navigation chapters
+      description: Retrieve all chapters related to Nav2 for humanoid navigation
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+          description: Number of items per page
+      responses:
+        '200':
+          description: A list of Nav2 Humanoid Navigation chapters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Chapter'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /jetson-deployment/chapters:
+    get:
+      summary: Get Jetson Deployment chapters
+      description: Retrieve all chapters related to Jetson deployment concepts
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+          description: Number of items per page
+      responses:
+        '200':
+          description: A list of Jetson Deployment chapters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Chapter'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /chapters/{id}:
+    get:
+      summary: Get a specific chapter
+      description: Retrieve a specific chapter by its ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Chapter ID
+      responses:
+        '200':
+          description: A specific chapter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+        '404':
+          description: Chapter not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+  /chapters/{id}/progress:
+    get:
+      summary: Get student progress for a chapter
+      description: Retrieve the progress of a student for a specific chapter
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Chapter ID
+      responses:
+        '200':
+          description: Student progress for the chapter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChapterProgress'
+        '404':
+          description: Chapter not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Update student progress for a chapter
+      description: Update the progress of a student for a specific chapter
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Chapter ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapterProgress'
+      responses:
+        '200':
+          description: Updated student progress for the chapter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChapterProgress'
+        '400':
+          description: Invalid data provided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Chapter not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Chapter:
+      type: object
+      required:
+        - id
+        - title
+        - content
+        - module
+        - chapter_number
+        - estimated_duration
+        - prerequisites
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the chapter
+          example: "isaac-sim-001"
+        title:
+          type: string
+          description: Title of the chapter
+          example: "Introduction to Isaac Sim"
+        content:
+          type: string
+          description: The actual content of the chapter (in Markdown format)
+        module:
+          type: string
+          description: Which module this chapter belongs to
+          enum: [isaac-sim, isaac-ros, synthetic-data, nav2-humanoid, jetson-deployment]
+        chapter_number:
+          type: integer
+          description: The sequential number of the chapter in its module
+          example: 1
+        estimated_duration:
+          type: string
+          description: Estimated time to complete the chapter
+          example: "2 weeks"
+        prerequisites:
+          type: array
+          items:
+            type: string
+          description: List of prerequisite knowledge or chapters
+          example: ["ros2-basics", "gazebo-simulation"]
+        objectives:
+          type: array
+          items:
+            type: string
+          description: Learning objectives for the chapter
+          example: ["Learn to install Isaac Sim", "Import robot models into simulation"]
+        code_examples:
+          type: array
+          items:
+            $ref: '#/components/schemas/CodeExample'
+        created_at:
+          type: string
+          format: date-time
+          description: When the chapter was created
+        updated_at:
+          type: string
+          format: date-time
+          description: When the chapter was last updated
+          
+    CodeExample:
+      type: object
+      required:
+        - id
+        - title
+        - code
+        - language
+        - description
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the code example
+          example: "isaac-sim-example-001"
+        title:
+          type: string
+          description: Title of the code example
+          example: "Basic Robot Import Script"
+        code:
+          type: string
+          description: The actual code content
+          example: "import omni.kit.commands\nomni.kit.commands.execute('ImportUSD', file_path='path/to/robot.usd')"
+        language:
+          type: string
+          description: Programming language of the code
+          example: "python"
+        description:
+          type: string
+          description: Description of what the code example demonstrates
+        related_concepts:
+          type: array
+          items:
+            type: string
+          description: List of concepts demonstrated in the code example
+          example: ["USD import", "Robot loading"]
+
+    ChapterProgress:
+      type: object
+      required:
+        - chapter_id
+        - user_id
+        - completion_percentage
+        - status
+      properties:
+        chapter_id:
+          type: string
+          description: ID of the chapter
+        user_id:
+          type: string
+          description: ID of the user/student
+        completion_percentage:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Percentage of the chapter completed by the user
+          example: 75.0
+        status:
+          type: string
+          enum: [not-started, in-progress, completed]
+          description: Current status of the chapter for the user
+        started_at:
+          type: string
+          format: date-time
+          description: When the user started the chapter
+        completed_at:
+          type: string
+          format: date-time
+          description: When the user completed the chapter
+        exercises_completed:
+          type: array
+          items:
+            type: string
+          description: List of exercise IDs completed by the user
+        time_spent:
+          type: integer
+          description: Time spent on the chapter in minutes
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 100
+        total_pages:
+          type: integer
+          example: 10
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: "NOT_FOUND"
+        message:
+          type: string
+          example: "Resource not found"
+        details:
+          type: object
+          description: Additional error details

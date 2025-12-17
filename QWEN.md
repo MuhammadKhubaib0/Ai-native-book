@@ -1,4 +1,4 @@
-# Qwen Code Rules
+﻿# Qwen Code Rules
 
 This file is generated during init for the selected agent.
 
@@ -208,3 +208,6 @@ Wait for consent; never auto-create ADRs. Group related decisions (stacks, authe
 
 ## Code Standards
 See `.specify/memory/constitution.md` for code quality, testing, performance, security, and architecture principles.
+
+## Qwen Added Memories
+- Today is Sunday, December 14, 2025. The user is working on implementing the Isaac AI Robot Brain module (feature 003) in the BOOK repository, which includes creating educational content for NVIDIA Isaac Sim, Isaac ROS, synthetic data generation, Nav2 for humanoid navigation, and Jetson deployment concepts.

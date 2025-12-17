@@ -1,0 +1,3 @@
+# This file is for the standalone RAG scripts
+# Most dependencies are shared with the backend service
+-r ../backend/requirements.txt

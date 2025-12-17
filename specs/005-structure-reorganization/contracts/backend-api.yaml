@@ -1,0 +1,116 @@
+openapi: 3.0.0
+info:
+  title: Backend API for RAG Implementation
+  description: API for the RAG (Retrieval Augmented Generation) functionality related to the textbook content
+  version: 1.0.0
+
+paths:
+  /health:
+    get:
+      summary: Check the health status of the backend service
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    example: "2025-12-15T10:00:00Z"
+
+  /api/v1/documents:
+    get:
+      summary: Retrieve a list of available textbook documents
+      responses:
+        '200':
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        title:
+                          type: string
+                        module:
+                          type: string
+                        chapter:
+                          type: integer
+                        url:
+                          type: string
+
+    post:
+      summary: Ingest a new document into the system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                title:
+                  type: string
+                module:
+                  type: string
+                chapter:
+                  type: integer
+      responses:
+        '201':
+          description: Document successfully ingested
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  message:
+                    type: string
+
+  /api/v1/query:
+    post:
+      summary: Query the textbook content using RAG
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                max_results:
+                  type: integer
+                  default: 5
+      responses:
+        '200':
+          description: Query results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        content:
+                          type: string
+                        source:
+                          type: string
+                        score:
+                          type: number

@@ -1,0 +1,377 @@
+openapi: 3.0.0
+info:
+  title: Vision-Language-Action (VLA) Capstone API
+  description: API for the Vision-Language-Action Capstone module that integrates voice commands, language models, and robotic actions for educational purposes.
+  version: 1.0.0
+  contact:
+    name: VLA Capstone Development Team
+    email: vla-team@example.com
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://vla-api.example.com
+    description: Production API server
+
+paths:
+  /voice/commands:
+    post:
+      summary: Submit a voice command for processing
+      description: Accepts audio data or transcribed text and processes it through the VLA pipeline
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                audio:
+                  type: string
+                  format: binary
+                  description: Audio file containing the voice command
+                transcribed_text:
+                  type: string
+                  description: Optional pre-transcribed text of the command
+                student_id:
+                  type: string
+                  description: Identifier for the student issuing the command
+            encoding:
+              audio:
+                contentType: audio/wav
+      responses:
+        '200':
+          description: Successfully processed voice command and returned action sequence
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoiceCommandResponse'
+        '400':
+          description: Invalid request - missing audio or invalid format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error during processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /vla/system/state:
+    get:
+      summary: Get current state of the VLA system
+      description: Returns the current state of the VLA system including robot status, last command, and system status
+      responses:
+        '200':
+          description: Current system state retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VLASystemState'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /vla/execute:
+    post:
+      summary: Execute an action sequence on the robot
+      description: Takes an action sequence and executes it on the robot in simulation or real environment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActionSequence'
+      responses:
+        '200':
+          description: Action sequence execution started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResponse'
+        '400':
+          description: Invalid action sequence
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error during execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /vla/learning/progress:
+    get:
+      summary: Get student learning progress
+      description: Retrieve the progress of a student through the VLA module
+      parameters:
+        - name: student_id
+          in: query
+          required: true
+          description: Identifier for the student
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Student progress retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentProgress'
+        '404':
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /vla/learning/progress:
+    put:
+      summary: Update student learning progress
+      description: Update the progress of a student through the VLA module
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentProgress'
+      responses:
+        '200':
+          description: Student progress updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentProgress'
+        '400':
+          description: Invalid progress data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    VoiceCommand:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the voice command
+        student_id:
+          type: string
+          description: Identifier for the student issuing the command
+        audio_data:
+          type: string
+          format: byte
+          description: Raw audio data (base64 encoded)
+        transcribed_text:
+          type: string
+          description: Text converted from speech
+        intent:
+          type: string
+          description: Parsed intent from the command
+        parameters:
+          type: object
+          description: Structured parameters extracted from the command
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Confidence score for the transcription
+        timestamp:
+          type: string
+          format: date-time
+          description: When the command was captured
+
+    VoiceCommandResponse:
+      type: object
+      properties:
+        voice_command_id:
+          type: string
+          description: Identifier for the processed voice command
+        transcribed_text:
+          type: string
+          description: Text converted from speech
+        intent:
+          type: string
+          description: Parsed intent from the command
+        parameters:
+          type: object
+          description: Structured parameters extracted from the command
+        action_sequence:
+          $ref: '#/components/schemas/ActionSequence'
+        processing_time:
+          type: number
+          format: float
+          description: Time taken to process the command in seconds
+
+    ActionSequence:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the action sequence
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionStep'
+        description:
+          type: string
+          description: Human-readable description of the sequence
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed]
+          description: Execution status of the sequence
+
+    ActionStep:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the action step
+        action_type:
+          type: string
+          enum: [navigation, manipulation, perception, other]
+          description: Type of action to perform
+        parameters:
+          type: object
+          description: Parameters specific to the action type
+        timeout:
+          type: integer
+          description: Maximum time to wait for action completion in seconds
+        order:
+          type: integer
+          description: Order of this step in the sequence
+
+    VLASystemState:
+      type: object
+      properties:
+        system_status:
+          type: string
+          enum: [idle, listening, processing, executing, error]
+          description: Overall system status
+        current_voice_command:
+          type: string
+          description: Currently processed voice command
+        current_action_sequence:
+          type: string
+          description: Currently executing action sequence
+        robot_pose:
+          $ref: '#/components/schemas/Pose'
+        perception_data:
+          type: object
+          description: Current sensor and perception data
+        last_update:
+          type: string
+          format: date-time
+          description: When the state was last updated
+
+    Pose:
+      type: object
+      properties:
+        x:
+          type: number
+          format: float
+          description: X coordinate in meters
+        y:
+          type: number
+          format: float
+          description: Y coordinate in meters
+        z:
+          type: number
+          format: float
+          description: Z coordinate in meters
+        rotation:
+          type: object
+          properties:
+            qx:
+              type: number
+              format: float
+              description: X component of quaternion rotation
+            qy:
+              type: number
+              format: float
+              description: Y component of quaternion rotation
+            qz:
+              type: number
+              format: float
+              description: Z component of quaternion rotation
+            qw:
+              type: number
+              format: float
+              description: W component of quaternion rotation
+
+    ExecutionResponse:
+      type: object
+      properties:
+        execution_id:
+          type: string
+          description: Unique identifier for the execution
+        status:
+          type: string
+          enum: [started, completed, failed]
+          description: Status of the execution
+        message:
+          type: string
+          description: Additional information about the execution
+
+    StudentProgress:
+      type: object
+      properties:
+        student_id:
+          type: string
+          description: Identifier for the student
+        module_progress:
+          type: object
+          description: Progress tracking for each module section
+        completed_chapters:
+          type: array
+          items:
+            type: string
+          description: List of completed chapters
+        assessment_scores:
+          type: array
+          items:
+            type: number
+            format: float
+          description: Scores for module assessments
+        start_date:
+          type: string
+          format: date-time
+          description: When the student started the module
+        completion_date:
+          type: string
+          format: date-time
+          description: When the student completed the module (if applicable)
+
+    ErrorResponse:
+      type: object
+      properties:
+        error_code:
+          type: string
+          description: Code identifying the error
+        message:
+          type: string
+          description: Human-readable description of the error
+        details:
+          type: object
+          description: Additional details about the error
