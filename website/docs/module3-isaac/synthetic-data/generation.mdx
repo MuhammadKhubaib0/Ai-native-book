@@ -1,0 +1,121 @@
+---
+sidebar_position: 1
+title: "Synthetic Data Generation Overview"
+description: "Introduction to generating synthetic training data using Isaac Sim and domain randomization"
+---
+
+# Synthetic Data Generation Overview
+
+## Introduction
+
+Synthetic data generation is a crucial technique in modern robotics and computer vision applications. By creating artificial datasets using simulation environments, we can overcome the challenges of collecting, annotating, and maintaining real-world datasets. Isaac Sim provides powerful tools for generating diverse, labeled synthetic datasets for training perception models.
+
+Synthetic data offers several advantages over real-world data, including perfect ground truth annotations, controlled environmental conditions, and unlimited data diversity through domain randomization.
+
+## The Synthetic Data Pipeline
+
+### Data Generation Process
+
+The synthetic data generation pipeline in Isaac Sim typically involves:
+
+1. **Environment Setup**: Creating or importing simulation environments
+2. **Domain Randomization**: Randomizing environment parameters (lighting, textures, object positions)
+3. **Data Capture**: Capturing sensor data (images, depth maps, point clouds)
+4. **Automatic Annotation**: Generating ground truth labels for training
+5. **Quality Validation**: Ensuring synthetic data quality
+
+### Benefits of Synthetic Data
+
+- **Perfect Annotations**: Ground truth data without manual labeling
+- **Diversity Control**: Systematically vary environmental conditions
+- **Cost Efficiency**: Reduce time and cost compared to real data collection
+- **Safety**: Generate data for dangerous scenarios without risk
+
+## Domain Randomization
+
+Domain randomization is a key technique in synthetic data generation that involves systematically randomizing the parameters of the simulation environment to create diverse training data. This includes:
+
+### Visual Parameters
+- Lighting conditions (position, intensity, color)
+- Material properties (texture, reflectance, roughness)
+- Camera parameters (position, orientation, noise)
+
+### Physical Parameters
+- Object positions and orientations
+- Physics properties (friction, mass, restitution)
+- Environmental dynamics (wind, moving objects)
+
+### Scene Parameters
+- Object types and variations
+- Background complexity
+- Occlusion patterns
+
+## Isaac Sim for Synthetic Data
+
+### USD Workflows for Asset Management
+
+Isaac Sim uses Universal Scene Description (USD) as its core format, which is ideal for synthetic data generation:
+
+- Reusable 3D assets with consistent formats
+- Complex scene assemblies with instancing
+- Efficient rendering through Hydra delegate system
+
+### Sensor Simulation
+
+Isaac Sim provides accurate simulation of various sensors:
+
+- RGB cameras with realistic distortion models
+- Depth cameras with configurable noise
+- LiDAR sensors with accurate physics simulation
+- IMU and other sensor types
+
+### Annotation Tools
+
+Isaac Sim includes tools for generating various types of annotations:
+
+- 2D bounding boxes
+- 3D bounding boxes
+- Instance segmentation masks
+- Semantic segmentation masks
+- Depth maps
+- Surface normals
+
+## Learning Objectives
+
+After completing this chapter, you will be able to:
+
+- Understand the principles of synthetic data generation
+- Configure domain randomization in Isaac Sim
+- Set up automatic annotation for synthetic datasets
+- Evaluate the quality of synthetic datasets
+- Apply synthetic data to train perception models
+
+## Applications in Robotics
+
+Synthetic data generation has numerous applications in robotics:
+
+- **Object Detection**: Training models to recognize objects in various conditions
+- **Semantic Segmentation**: Segmenting scenes into meaningful categories
+- **Depth Estimation**: Learning to predict depth from RGB images
+- **Pose Estimation**: Estimating object poses in 3D space
+- **Navigation**: Training navigation policies in diverse environments
+
+## Quality Considerations
+
+### Domain Gap
+
+The domain gap refers to the difference between synthetic and real data that can affect model performance. Techniques to address domain gap include:
+
+- Careful design of domain randomization
+- Sim-to-real transfer learning techniques
+- Validation on real-world data
+
+### Validation Strategies
+
+- Compare synthetic vs real statistics
+- Test on real-world validation sets
+- Use Sim-to-Real metrics
+
+## Next Steps
+
+In the following chapters, we'll dive deeper into domain randomization techniques, explore specific annotation methods, and provide hands-on tutorials for implementing synthetic data generation pipelines. We'll also cover how to validate and use synthetic datasets for training computer vision models in robotics applications.

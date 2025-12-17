@@ -1,0 +1,337 @@
+---
+sidebar_position: 5
+title: "Omniverse Connector Tutorial"
+description: "Connecting Isaac Sim to Omniverse for collaboration and asset sharing"
+---
+
+# Omniverse Connector Tutorial
+
+## Introduction to Omniverse Connection
+
+NVIDIA Omniverse is a simulation and collaboration platform that enables real-time collaboration between teams and applications. Isaac Sim connects to Omniverse to provide shared simulation environments, asset libraries, and collaborative development capabilities.
+
+This tutorial covers connecting Isaac Sim to Omniverse, sharing assets, and collaborating on simulation environments with team members.
+
+## Prerequisites
+
+Before starting this tutorial, ensure you have:
+- Access to an Omniverse server (Nucleus)
+- Isaac Sim installed and running
+- Network access to the Omniverse server
+- Valid credentials for the Omniverse server
+
+## Setting Up Omniverse Connection
+
+### 1. Configuring Omniverse Nucleus Connection
+
+Omniverse Nucleus is the asset management and collaboration server that connects different Omniverse applications:
+
+1. **Configure Nucleus Connection**:
+   - Launch Isaac Sim
+   - Go to "Window" > "Omniverse" > "Connection"
+   - Enter the Nucleus server URL (e.g., `omniverse://server.example.com`)
+   - Enter your username and password
+   - Click "Connect"
+
+2. **Verify Connection**:
+   - Check that you can see the contents of the Omniverse file system
+   - Verify that you can browse shared libraries and assets
+
+### 2. Understanding Omniverse Paths
+
+Omniverse uses special paths to identify assets:
+
+- `omniverse://server_name.usd_path` - Access assets on Omniverse server
+- `Library://` - Shared asset libraries
+- `Projects://` - User project directory
+- `Assets://` - User asset directory
+
+## Connecting Isaac Sim to Omniverse
+
+### Using the Connect Tab
+
+1. In Isaac Sim, click on "Window" > "Omniverse" > "Connect"
+2. Enter your server connection details in the Connect tab
+3. Authenticate with your credentials
+4. Browse available assets and projects in the Asset Browser
+
+### Configuring Auto-Connection
+
+For regular use, you can configure automatic connection to Omniverse:
+
+```python
+# Example: Configure Omniverse connection programmatically
+import carb
+import omni
+
+def setup_omniverse_connection(server_url, username, password):
+    """
+    Configure Omniverse connection settings
+    """
+    # Set connection parameters
+    carb.settings.get_settings().set("/exts/omni.kit.connect/service/active", True)
+    carb.settings.get_settings().set("/exts/omni.kit.connect/service/server_url", server_url)
+    carb.settings.get_settings().set("/exts/omni.kit.connect/service/username", username)
+    
+    # Connect to Omniverse
+    omni.kit.connect.ConnectAPI.get_instance().connect(username, password)
+```
+
+## Sharing Assets via Omniverse
+
+### Uploading Assets to Omniverse
+
+1. **Prepare Your Asset**:
+   - Ensure your USD file is properly formatted
+   - Include all necessary textures and materials
+   - Test the asset in your local Isaac Sim before uploading
+
+2. **Upload Process**:
+   - Open the Connect panel in Isaac Sim
+   - Navigate to your desired location in the Omniverse file system
+   - Click the "Upload" button
+   - Select your USD file
+   - Confirm upload
+
+3. **Asset Organization**:
+   - Use consistent naming conventions
+   - Create appropriate folders for different asset types
+   - Include metadata tags for easy searching
+
+### Creating Shared Libraries
+
+Omniverse provides shared libraries for common robotics assets:
+
+```
+Library://
+├── Robots/
+│   ├── Industrial/
+│   ├── Humanoid/
+│   └── Mobile/
+├── Environments/
+│   ├── Indoor/
+│   ├── Outdoor/
+│   └── Warehouse/
+├── Objects/
+│   ├── Furniture/
+│   ├── Tools/
+│   └── Obstacles/
+└── Sensors/
+```
+
+You can contribute to these libraries or create your own for your team's use.
+
+## Collaborative Simulation Workflows
+
+### Version Control in Omniverse
+
+Omniverse provides basic version control for assets:
+
+1. **Check Out**: When editing an asset, check it out to prevent conflicts
+2. **Check In**: After editing, check in the asset with a descriptive comment
+3. **Review Changes**: Compare your changes with the previous version
+4. **Resolve Conflicts**: If multiple people edit the same asset, resolve conflicts
+
+### Real-Time Collaboration
+
+For real-time collaboration:
+1. Multiple users can open the same USD file simultaneously
+2. Changes made by one user are visible to others (with some delay)
+3. Use the chat feature in Omniverse to coordinate work
+4. Use layer management to work on different aspects of a scene
+
+## Working with Omniverse Assets
+
+### Browsing and Using Shared Assets
+
+To use shared assets in your simulation:
+
+1. Open the Asset Browser (Window > Content > Library)
+2. Navigate to the desired asset in Omniverse
+3. Drag the asset into your current stage or scene
+4. Modify properties as needed for your simulation
+
+```python
+# Example: Loading an asset from Omniverse
+from omni.isaac.core.utils.stage import add_reference_to_stage
+from omni.isaac.core.utils.nucleus import get_assets_root_path
+
+def load_robot_from_omniverse(robot_name, prim_path):
+    """
+    Load a robot asset from Omniverse library
+    """
+    # Get the Omniverse assets root
+    assets_root = get_assets_root_path()
+    
+    if assets_root is None:
+        print("Could not connect to Omniverse Nucleus")
+        return None
+    
+    # Construct path to the robot
+    robot_path = f"{assets_root}/Robots/{robot_name}.usd"
+    
+    # Add reference to stage
+    add_reference_to_stage(usd_path=robot_path, prim_path=prim_path)
+```
+
+### Managing Custom Assets
+
+For your own robot models and environments:
+
+1. **Organization**: Create a structured directory for your assets
+2. **Versioning**: Use version numbers in asset names when appropriate
+3. **Documentation**: Include README files with usage instructions
+4. **Testing**: Validate assets work correctly in Isaac Sim before sharing
+
+## Omniverse for Synthetic Data Generation
+
+### Shared Data Generation Pipelines
+
+Omniverse enables teams to share synthetic data generation workflows:
+
+1. **Environment Templates**: Share standardized environments for data generation
+2. **Domain Randomization Settings**: Share configurations for randomization
+3. **Annotation Tools**: Share tools and methods for data annotation
+4. **Dataset Catalogs**: Maintain catalogs of generated datasets
+
+### Collaborative Data Generation
+
+Multiple team members can contribute to synthetic dataset generation:
+
+1. **Distribute Tasks**: Different team members work on different aspects
+2. **Consistent Formats**: Ensure all generated data follows the same format
+3. **Quality Control**: Review and validate data generated by others
+4. **Version Tracking**: Track which versions of assets were used for each dataset
+
+## Troubleshooting Connection Issues
+
+### Common Connection Problems
+
+**Problem**: Cannot connect to Omniverse Nucleus server.
+**Solutions**:
+- Verify the server URL is correct
+- Check network connectivity to the server
+- Ensure you have valid credentials
+- Verify that the Omniverse server is running
+
+**Problem**: Asset fails to load from Omniverse.
+**Solutions**:
+- Check that the asset path is correct
+- Verify you have read permissions for the asset
+- Ensure all referenced assets exist in Omniverse
+- Check that the asset is not corrupted
+
+**Problem**: Slow asset loading from Omniverse.
+**Solutions**:
+- Verify network connection speed
+- Check Omniverse server performance
+- Consider using local copies of frequently used assets
+- Optimize asset file sizes
+
+### Performance Optimization
+
+**Optimize Asset Loading**:
+- Use proxy geometry for complex assets during scene assembly
+- Implement streaming for large environments
+- Use level-of-detail (LOD) for distant objects
+- Cache frequently accessed assets locally
+
+## Security and Permissions
+
+### Managing Access Rights
+
+Omniverse provides fine-grained access control:
+
+- **Read access**: View and use assets
+- **Write access**: Modify assets
+- **Create access**: Add new assets
+- **Admin access**: Manage permissions and settings
+
+### Security Best Practices
+
+- Use secure authentication methods
+- Regularly rotate shared credentials
+- Monitor access logs for unusual activity
+- Segregate sensitive assets from general ones
+
+## Advanced Omniverse Features
+
+### Custom Extensions
+
+You can create custom Omniverse extensions for robotics workflows:
+
+```python
+# Example: Simple Omniverse extension for robotics
+import omni.ext
+import omni.kit.ui
+
+class RoboticsExtension(omni.ext.IExt):
+    def on_startup(self, ext_id):
+        self._ext_id = ext_id
+        print("[my_robotics_extension] Robotics Extension Startup")
+        
+        # Add custom menu items for robotics workflows
+        editor_menu = omni.kit.ui.get_editor_menu()
+        if editor_menu:
+            self._menu_item = editor_menu.add_item(
+                "Robotics/Import Custom Robot", 
+                self._import_custom_robot
+            )
+    
+    def on_shutdown(self):
+        print("[my_robotics_extension] Robotics Extension Shutdown")
+        if hasattr(self, '_menu_item'):
+            editor_menu = omni.kit.ui.get_editor_menu()
+            if editor_menu:
+                editor_menu.remove_item(self._menu_item)
+        
+        self._ext_id = None
+    
+    def _import_custom_robot(self):
+        # Implementation for custom robot import
+        pass
+```
+
+### Integration with Other Tools
+
+Omniverse connects to various tools in the robotics pipeline:
+
+- **CAD Software**: Direct import from popular CAD packages
+- **Simulation Tools**: Export scenes to other simulators
+- **Annotation Tools**: Integrate with labeling and annotation platforms
+- **Training Pipelines**: Connect synthetic data generation to model training
+
+## Best Practices
+
+### 1. Organization and Naming
+
+- Use clear, descriptive names for assets
+- Maintain consistent directory structures
+- Include version information where appropriate
+- Document dependencies between assets
+
+### 2. Asset Optimization
+
+- Optimize assets for simulation performance
+- Use appropriate level of detail for different applications
+- Validate assets before sharing with the team
+- Keep file sizes reasonable for efficient sharing
+
+### 3. Collaboration Workflow
+
+- Establish clear procedures for asset check-in/check-out
+- Use descriptive comments when updating assets
+- Regularly review and clean up unused assets
+- Maintain a changelog for significant asset updates
+
+## Next Steps
+
+With Omniverse connection established, you can:
+
+1. Access shared robotics assets from your team
+2. Contribute your own robot models and environments
+3. Collaborate on simulation scenarios with other team members
+4. Use shared synthetic data generation pipelines
+5. Integrate your robotics workflows with the broader Omniverse platform
+
+These collaborative capabilities enhance the productivity of robotics teams and enable the creation of complex simulation environments that would be difficult to develop individually.

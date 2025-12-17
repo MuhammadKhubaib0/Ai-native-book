@@ -1,0 +1,36 @@
+graph TB
+    subgraph "Robot Sensors"
+        A[LiDAR: Distance Measurement]
+        B[Depth Camera: RGB-D Data]
+        C[IMU: Acceleration & Angular Velocity]
+    end
+    
+    subgraph "Simulated Noise Models"
+        A1[Gaussian Noise: σ=0.01m]
+        B1[Distance-dependent Noise]
+        C1[Multi-axis Gaussian Noise]
+    end
+    
+    subgraph "ROS 2 Topics"
+        D[/laser_scan]
+        E[/rgb/image_raw]
+        F[/depth/image_raw]
+        G[/imu]
+    end
+    
+    A --> A1
+    B --> B1
+    C --> C1
+    
+    A1 --> D
+    B1 --> E
+    B1 --> F
+    C1 --> G
+    
+    style A fill:#cde4ff
+    style B fill:#cde4ff
+    style C fill:#cde4ff
+    style D fill:#f9f
+    style E fill:#f9f
+    style F fill:#f9f
+    style G fill:#f9f

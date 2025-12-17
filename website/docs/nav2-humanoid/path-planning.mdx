@@ -1,0 +1,274 @@
+---
+sidebar_position: 2
+title: "Path Planning for Bipedal Locomotion"
+description: "Algorithms and techniques for path planning specific to bipedal humanoid robots"
+---
+
+# Path Planning for Bipedal Locomotion
+
+## Understanding Bipedal Path Planning
+
+Path planning for bipedal humanoid robots presents unique challenges that differ significantly from wheeled robot navigation. Humanoid robots must maintain balance while walking, consider the placement of each footstep, and account for complex kinematic constraints that affect how they can move through an environment.
+
+The path planning process for bipedal robots typically involves multiple layers of planning:
+
+1. **High-level global path planning**: Finding a feasible route from start to goal
+2. **Footstep planning**: Determining where to place each foot for stable locomotion
+3. **Gait adaptation**: Adjusting walking patterns based on terrain and obstacles
+4. **Balance-aware path refinement**: Ensuring the planned path maintains robot stability
+
+## Key Differences from Wheeled Robot Planning
+
+### Step-by-Step Motion
+
+Unlike wheeled robots that can smoothly follow a path, humanoid robots move in discrete steps:
+
+- Each foot placement must be planned carefully to maintain balance
+- The robot's center of mass must be transferred between feet
+- Step size is limited by the robot's physical capabilities
+
+### Balance Constraints
+
+Path planning for humanoids must consider:
+
+- **Zero Moment Point (ZMP) constraints**: The robot's center of pressure must remain within the support polygon
+- **Stability margins**: Paths must provide sufficient buffer for dynamic balance
+- **Recovery capability**: Ability to adjust steps if balance is compromised
+
+### Terrain Requirements
+
+Humanoid robots need flat, stable surfaces for foot placement:
+
+- Rough terrain may be impassable despite being navigable for wheeled robots
+- Small obstacles may require path adjustments to find suitable step locations
+- Different surface types may require different gait patterns
+
+## Path Planning Algorithms for Humanoids
+
+### A* with Footstep Cost
+
+The A* algorithm can be adapted for humanoid navigation by incorporating footstep planning costs:
+
+```python
+def humanoid_a_star(start, goal, costmap):
+    # Standard A* implementation with modification for humanoid constraints
+    open_set = PriorityQueue()
+    open_set.put((0, start))
+    came_from = {}
+    g_score = {start: 0}
+    f_score = {start: heuristic(start, goal)}
+    
+    while not open_set.empty():
+        current = open_set.get()[1]
+        
+        if current == goal:
+            return reconstruct_path(came_from, current)
+        
+        for neighbor in get_huamnoid_neighbors(current, costmap):
+            # Calculate step feasibility and stability
+            step_cost = calculate_step_cost(current, neighbor)
+            tentative_g_score = g_score[current] + step_cost
+            
+            if tentative_g_score < g_score.get(neighbor, float('inf')):
+                came_from[neighbor] = current
+                g_score[neighbor] = tentative_g_score
+                f_score[neighbor] = g_score[neighbor] + heuristic(neighbor, goal)
+                
+                # Only add to open set if step is feasible for humanoid
+                if is_step_feasible(current, neighbor):
+                    open_set.put((f_score[neighbor], neighbor))
+    
+    return None  # No path found
+```
+
+### Footstep Planning Algorithms
+
+#### Footstep Planner Based on Terrain
+
+Footstep planners generate sequences of foot placements that maintain robot stability:
+
+1. **Grid-based footstep planning**: Divide the environment into a grid suitable for foot placement
+2. **Visibility-based planning**: Consider visibility between possible footstep locations
+3. **Stability field planning**: Evaluate terrain stability for potential foot placements
+
+#### Example: Grid-based Footstep Planning
+
+```python
+def plan_footsteps(start_pose, goal_pose, costmap, robot_params):
+    """
+    Plan footsteps for a bipedal robot between start and goal poses
+    """
+    # Create a grid that considers possible foot placements
+    step_grid = create_step_grid(costmap, robot_params)
+    
+    # Find path using the grid
+    path = find_path_with_constraints(
+        start_pose, goal_pose, step_grid, 
+        max_step_size=robot_params.max_step_size,
+        min_step_size=robot_params.min_step_size
+    )
+    
+    # Convert path to sequence of footsteps
+    footsteps = convert_path_to_footsteps(path, start_pose)
+    
+    # Verify stability of the footstep sequence
+    if verify_stability(footsteps):
+        return footsteps
+    else:
+        # Try alternative paths with different constraints
+        return find_alternative_footsteps(start_pose, goal_pose, costmap, robot_params)
+```
+
+### Balance-Aware Path Optimization
+
+Path planning for humanoids should consider:
+
+- **ZMP trajectory planning**: Ensuring the planned path maintains ZMP within safe limits
+- **Capture Point planning**: Maintaining the capture point within the support polygon
+- **Dynamic balance margins**: Allowing for dynamic adjustments during locomotion
+
+## Configuration for Humanoid Path Planning
+
+### Parameter Tuning for Bipedal Robots
+
+```yaml
+global_planner:
+  plugin: "nav2_navfn_planner/NavfnPlanner"
+  tolerance: 0.5  # Allow more tolerance for humanoid path planning
+  use_astar: true
+  allow_unknown: true
+
+local_planner:
+  plugin: "nav2_mppi_controller/MPPIController"
+  
+# Humanoid-specific parameters
+footstep_planner:
+  max_step_length: 0.3    # Maximum distance between consecutive steps
+  max_step_width: 0.2     # Maximum lateral step distance
+  max_step_rotation: 0.5  # Maximum rotation between steps (rad)
+  min_step_length: 0.1    # Minimum step length for efficiency
+  step_spacing: 0.2       # Desired distance between steps
+  foot_separation: 0.2    # Lateral distance between feet during walking
+  
+# Balance constraints
+balance_controller:
+  zmp_tolerance: 0.05     # Tolerance for ZMP deviation
+  capture_point_margin: 0.1 # Safety margin for capture point
+  com_height: 0.6         # Expected center of mass height
+```
+
+### Costmap Adaptations
+
+Humanoid-specific costmaps need to account for:
+
+```yaml
+# Humanoid-specific local costmap
+local_costmap:
+  type: "costmap_2d::Costmap2DROS"
+  global_frame: odom
+  robot_base_frame: base_link
+  update_frequency: 10.0
+  publish_frequency: 5.0
+  width: 8.0    # Wider to account for step planning
+  height: 8.0
+  resolution: 0.025  # Finer resolution for footstep planning
+  origin_x: -4.0
+  origin_y: -4.0
+  plugins:
+    - {name: obstacle_layer, type: "nav2_costmap_2d::ObstacleLayer"}
+    - {name: inflation_layer, type: "nav2_costmap_2d::InflationLayer"}
+    - {name: voxel_layer, type: "nav2_costmap_2d::VoxelLayer"}
+  inflation_layer:
+    inflation_radius: 0.8    # Larger radius for humanoid safety
+    cost_scaling_factor: 5.0 # Higher cost scaling for stability
+    inflate_unknown: false   # Don't inflate unknown areas as obstacles
+```
+
+## Gait Adaptation
+
+### Adaptive Gait Planning
+
+Humanoid robots need to adapt their gait based on environmental conditions:
+
+- **Terrain adaptive gait**: Adjust step patterns based on ground properties
+- **Obstacle adaptive gait**: Modify stepping to navigate around obstacles
+- **Dynamic adaptive gait**: Adjust to moving obstacles or changing conditions
+
+### Step Pattern Selection
+
+Different situations may require different step patterns:
+
+- **Normal walking**: Regular alternating steps
+- **Careful stepping**: Slower, more deliberate steps for unstable terrain
+- **Quick stepping**: Faster steps for dynamic obstacle avoidance
+- **Turning steps**: Specialized patterns for changing direction
+
+## Implementation Challenges
+
+### Computational Complexity
+
+Bipedal path planning is computationally more complex than wheeled robot planning:
+
+- Consideration of balance constraints at every step
+- Evaluation of multiple possible foot placements
+- Real-time re-planning for dynamic environments
+
+### Sensor Integration
+
+Effective humanoid navigation requires:
+
+- **IMU data**: For balance state estimation
+- **Force/torque sensors**: For foot contact detection
+- **Vision systems**: For terrain assessment
+- **LIDAR/depth cameras**: For obstacle detection
+
+### Real-time Performance
+
+Path planning algorithms need to operate in real-time:
+
+- Efficient algorithms that can plan steps quickly
+- Parallel processing where possible
+- Prediction mechanisms to anticipate future steps
+
+## Validation and Testing
+
+### Simulation Testing
+
+Before deployment on physical robots:
+
+- Test in Isaac Sim with accurate humanoid models
+- Verify stability across different terrains
+- Test response to dynamic obstacles
+
+### Metrics
+
+Quantitative measures for path planning performance:
+
+- **Success rate**: Percentage of successful navigation attempts
+- **Path efficiency**: Comparison of planned path to optimal path
+- **Balance maintenance**: Time spent in stable states
+- **Step optimality**: Efficiency of step sequence
+
+## Best Practices
+
+### Conservative Parameter Setting
+
+- Start with conservative parameters and gradually increase capabilities
+- Ensure safety margins in all stability calculations
+- Plan for worst-case scenarios
+
+### Multi-layer Planning
+
+- Separate high-level path planning from detailed footstep planning
+- Use different planners for different aspects of navigation
+- Coordinate between planning layers effectively
+
+### Recovery Planning
+
+- Plan for balance recovery scenarios
+- Have fallback strategies for path planning failures
+- Implement graceful degradation when conditions change
+
+## Next Steps
+
+In the following chapters, we'll explore costmap configuration specifically for humanoid robots, implement recovery behaviors for challenging navigation situations, and provide hands-on tutorials for tuning navigation parameters. We'll also cover how to integrate these navigation capabilities with Isaac Sim for comprehensive testing and validation.

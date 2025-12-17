@@ -1,0 +1,84 @@
+---
+id: intro
+title: Introduction to ROS 2
+sidebar_position: 1
+---
+
+# Introduction to ROS 2
+
+## Overview
+
+Welcome to Module 1: The Robotic Nervous System (ROS 2). This module will introduce you to the Robot Operating System 2 (ROS 2), a flexible framework for writing robot applications. ROS 2 is not an operating system but rather a collection of tools, libraries, and conventions that aim to simplify the task of creating complex and robust robot applications.
+
+ROS 2 is the next generation of the Robot Operating System, designed to address the needs of commercial, real-world applications. It provides:
+
+- A distributed framework for communication between processes
+- Tools for building, running, and managing robot applications
+- Device drivers and application libraries
+- Robust testing and documentation tools
+- Package management for code reuse
+
+## The Evolution from ROS 1 to ROS 2
+
+ROS 1 was designed primarily for research purposes and had several limitations for production use:
+
+- Single master architecture creating a single point of failure
+- Limited support for real-time systems
+- Lack of security features
+- Complex dependency management
+- Challenges with multi-robot systems
+
+ROS 2 addresses these limitations by:
+
+- Using a peer-to-peer architecture based on DDS (Data Distribution Service)
+- Providing support for real-time systems
+- Adding security features including authentication and encryption
+- Simplifying dependency management with modern build tools
+- Enabling better multi-robot coordination
+
+## Key Concepts in ROS 2
+
+### Nodes
+A node is a process that performs computation. ROS 2 is designed with a distributed architecture where multiple nodes communicate with each other. Nodes are usually written to perform a specific, modular function and can be combined with other nodes in the system.
+
+In ROS 2, nodes are implemented as objects that are part of a client library (like rclcpp for C++ or rclpy for Python). A ROS 2 system typically includes many nodes working together.
+
+### Topics
+Topics are named buses over which nodes exchange messages. Topics are intended for unidirectional communication where nodes called publishers write data to topics and nodes called subscribers receive data from topics. This is commonly called "publish/subscribe" communication.
+
+Topics allow for asynchronous communication between nodes: publishers don't need to know who is subscribing, and subscribers don't need to know who is publishing. This loose coupling enables great flexibility in ROS 2 systems.
+
+### Services
+Services provide a request/reply communication pattern, which is synchronous and bidirectional. A service client sends a request message to a service server, which then processes the request and returns a response message.
+
+Services are useful when you need to ensure that a request is processed and you receive a response, unlike topics which don't guarantee delivery.
+
+### Actions
+Actions are a more advanced communication pattern that supports long-running tasks. They provide feedback during execution and can be canceled. Actions are useful for tasks like navigation to a goal or manipulation of objects.
+
+### Packages
+A package is the fundamental building block of ROS 2. It contains nodes, libraries, data, and configuration files needed for a particular functionality. Packages also contain metadata about their dependencies, making it easy to share and reuse code.
+
+## ROS 2 Architecture
+
+The ROS 2 architecture is built on top of DDS (Data Distribution Service), a communications middleware that provides a publisher/subscriber model for distributed systems. DDS handles the communication between nodes, allowing them to discover each other and exchange data.
+
+DDS implementations provide different Quality of Service (QoS) settings that allow you to tune the communication behavior based on your requirements. For example, you can specify reliability (reliable or best-effort delivery) and durability (whether late-joining subscribers get old data).
+
+## Setting Up Your ROS 2 Environment
+
+Before we dive deeper into ROS 2, let's set up your development environment. You'll need to install ROS 2 and set up your workspace.
+
+For this textbook, we recommend using ROS 2 Humble Hawksbill, a Long Term Support (LTS) distribution that will be supported until May 2027.
+
+## Summary
+
+In this chapter, we've covered the basics of ROS 2, including its architecture, key concepts, and how it evolved from ROS 1. Understanding these foundational concepts is crucial for the rest of this module and for working with ROS 2 in general.
+
+In the next chapter, we'll dive into how to create Python agents using the rclpy library and implement publishers, subscribers, services, and actions.
+
+## Citations
+
+- ROS 2 Documentation. (2023). *ROS 2 Conceptual Overview*. Retrieved from https://docs.ros.org/en/humble/Concepts.html
+- Faconti, P., et al. (2021). *ROS 2 Design and Architecture*. Journal of Open Robotics Research.
+- Quigley, M., et al. (2009). *ROS: an open-source Robot Operating System*. ICRA Workshop on Open Source Software.

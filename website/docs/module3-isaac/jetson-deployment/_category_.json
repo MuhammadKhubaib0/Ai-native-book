@@ -1,0 +1,8 @@
+{
+  "label": "Jetson Deployment Concepts",
+  "position": 5,
+  "link": {
+    "type": "generated-index",
+    "description": "Learn about optimizing and deploying perception and navigation models to Jetson edge devices."
+  }
+}

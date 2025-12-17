@@ -1,0 +1,23 @@
+graph TD
+    A[Object with Mass] -->|Gravity Force| B(Free Fall Motion)
+    C[Object in Contact] -->|Normal Force| D(Contact Response)
+    E[Sliding Object] -->|Friction Force| F(Retardation)
+    
+    subgraph "Forces in Gazebo Physics"
+        A
+        C
+        E
+    end
+    
+    subgraph "Physics Responses"
+        B
+        D
+        F
+    end
+    
+    style A fill:#cde4ff
+    style C fill:#cde4ff
+    style E fill:#cde4ff
+    style B fill:#f9f
+    style D fill:#f9f
+    style F fill:#f9f

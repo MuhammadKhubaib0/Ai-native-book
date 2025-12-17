@@ -1,0 +1,565 @@
+---
+sidebar_position: 4
+title: "Depth Estimation with Isaac ROS"
+description: "Implementing depth estimation using Isaac ROS stereo reconstruction packages"
+---
+
+# Depth Estimation with Isaac ROS
+
+## Introduction to Depth Estimation
+
+Depth estimation is a fundamental capability in robotics that enables robots to understand the 3D structure of their environment. Isaac ROS provides optimized packages for depth estimation that leverage NVIDIA's GPU acceleration to achieve real-time performance.
+
+This chapter focuses on stereo-based depth estimation using Isaac ROS packages, which computes depth information from stereo camera pairs. We'll cover the theory behind stereo depth estimation, how Isaac ROS implements these algorithms, and practical implementation approaches.
+
+## Theory of Stereo Depth Estimation
+
+### Stereo Vision Basics
+
+Stereo depth estimation uses two cameras to compute depth information based on the principle of triangulation. When the same point in space is viewed from two different positions (the two cameras), the point appears at slightly different positions in the two images. This difference is called the "disparity."
+
+The relationship between disparity and depth is:
+```
+depth = (baseline * focal_length) / disparity
+```
+Where:
+- Baseline: Distance between the two cameras
+- Focal_length: Camera focal length in pixels
+- Disparity: Difference in pixel positions between left and right images
+
+### Challenges in Stereo Depth Estimation
+
+1. **Textureless Regions**: Areas with little texture have no distinctive features to match
+2. **Occlusions**: Objects visible to one camera but not the other
+3. **Repetitive Patterns**: Similar textures can cause incorrect matches
+4. **Lighting Conditions**: Changing lighting can affect feature matching
+5. **Real-time Processing**: Balancing accuracy with computational performance
+
+## Isaac ROS Stereo Packages
+
+Isaac ROS provides optimized stereo processing packages that leverage NVIDIA hardware acceleration:
+
+### Isaac ROS Stereo Image Processing
+
+The `isaac_ros_stereo_image_proc` package performs stereo rectification and disparity computation:
+
+```yaml
+# Example configuration file for stereo processing
+stereo_processing_config:
+  # Disparity computation parameters
+  stereo_block_matcher:
+    min_disparity: 0
+    num_disparities: 64
+    block_size: 15
+    uniqueness_ratio: 5
+    texture_threshold: 5
+    speckle_window_size: 200
+    speckle_range: 2
+    
+  # Post-processing parameters
+  disparity_filter:
+    median_filter_size: 5
+    validity_map_dilation: 2
+    min_depth: 0.3
+    max_depth: 20.0
+```
+
+### Isaac ROS Stereo Dense Reconstruction
+
+The `isaac_ros_stereo_dense_reconstruction` package creates dense 3D representations from stereo data:
+
+```yaml
+# Example configuration for dense reconstruction
+dense_reconstruction_config:
+  # Input parameters
+  input_resolution: [640, 480]
+  output_resolution: [640, 480]
+  
+  # Reconstruction parameters
+  min_depth: 0.3
+  max_depth: 15.0
+  depth_uncertainty_threshold: 0.1
+  temporal_filter_alpha: 0.8
+  
+  # Output formats
+  output_pointcloud: True
+  output_depth_image: True
+  output_confidence_map: True
+```
+
+## Implementation with Isaac ROS
+
+### Launch File Configuration
+
+```python
+# stereo_depth_estimation.launch.py
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import ComposableNodeContainer
+from launch_ros.descriptions import ComposableNode
+import os
+
+def generate_launch_description():
+    # Launch arguments
+    left_image_topic = LaunchConfiguration('left_image_topic', default='/camera/left/image_rect_color')
+    right_image_topic = LaunchConfiguration('right_image_topic', default='/camera/right/image_rect_color')
+    left_camera_info_topic = LaunchConfiguration('left_camera_info_topic', default='/camera/left/camera_info')
+    right_camera_info_topic = LaunchConfiguration('right_camera_info_topic', default='/camera/right/camera_info')
+    
+    container = ComposableNodeContainer(
+        name='stereo_depth_container',
+        namespace='',
+        package='rclcpp_components',
+        executable='component_container_mt',
+        composable_node_descriptions=[
+            # Disparity computation node
+            ComposableNode(
+                package='isaac_ros_stereo_image_proc',
+                plugin='isaac_ros::stereo_image_proc::DisparityNode',
+                name='disparity_node',
+                parameters=[{
+                    'approximate_sync': True,
+                    'use_system_default_qos': True,
+                    'min_disparity': 0,
+                    'num_disparities': 64,
+                    'block_size': 15,
+                    'uniqueness_ratio': 5,
+                    'texture_threshold': 5,
+                    'speckle_window_size': 200,
+                    'speckle_range': 2
+                }],
+                remappings=[
+                    ('left/image_rect', left_image_topic),
+                    ('right/image_rect', right_image_topic),
+                    ('left/camera_info', left_camera_info_topic),
+                    ('right/camera_info', right_camera_info_topic),
+                    ('disparity', 'disparity_output'),
+                    ('left/image_mono', 'left_image_mono')
+                ]
+            ),
+            
+            # Depth image generation node
+            ComposableNode(
+                package='isaac_ros_stereo_image_proc',
+                plugin='isaac_ros::stereo_image_proc::PointCloudNode',
+                name='pointcloud_node',
+                remappings=[
+                    ('left/image_rect_color', left_image_topic),
+                    ('disparity', 'disparity_output'),
+                    ('points2', 'pointcloud_output'),
+                    ('camera_info', left_camera_info_topic)
+                ]
+            )
+        ]
+    )
+
+    return LaunchDescription([container])
+```
+
+### Using Isaac ROS Stereo Dense Reconstruction
+
+```python
+# Example implementation of stereo dense reconstruction
+from geometry_msgs.msg import TransformStamped
+from sensor_msgs.msg import Image, CameraInfo
+from stereo_msgs.msg import DisparityImage
+from visualization_msgs.msg import Marker, MarkerArray
+from std_msgs.msg import Header
+import rclpy
+from rclpy.node import Node
+import numpy as np
+import open3d as o3d
+
+class StereoDepthEstimator(Node):
+    def __init__(self):
+        super().__init__('stereo_depth_estimator')
+        
+        # Create subscribers
+        self.left_sub = self.create_subscription(
+            Image, '/camera/left/image_rect_color', self.left_image_callback, 10)
+        self.right_sub = self.create_subscription(
+            Image, '/camera/right/image_rect_color', self.right_image_callback, 10)
+        self.disparity_sub = self.create_subscription(
+            DisparityImage, '/disparity_output', self.disparity_callback, 10)
+        
+        # Create publisher for depth images
+        self.depth_pub = self.create_publisher(Image, '/depth_output', 10)
+        self.pointcloud_pub = self.create_publisher(PointCloud2, '/pointcloud_output', 10)
+        
+        # Camera parameters (these would typically come from camera_info topics)
+        self.baseline = 0.1  # 10 cm between cameras
+        self.focal_length = 320.0  # In pixels
+        self.cx, self.cy = 320.0, 240.0  # Principal point
+        
+        # Store latest images
+        self.latest_left_image = None
+        self.latest_right_image = None
+        
+    def left_image_callback(self, msg):
+        # Store latest left image
+        self.latest_left_image = msg
+        
+    def right_image_callback(self, msg):
+        # Store latest right image
+        self.latest_right_image = msg
+        
+    def disparity_callback(self, msg):
+        """Process disparity image to generate depth image"""
+        # Convert disparity message to depth
+        if msg.image.encoding != '32FC1':
+            self.get_logger().error(f"Expected 32FC1 encoding, got {msg.image.encoding}")
+            return
+            
+        # Get disparity data
+        disparity_array = np.frombuffer(msg.image.data, dtype=np.float32)
+        disparity_image = disparity_array.reshape((msg.image.height, msg.image.width))
+        
+        # Compute depth from disparity
+        # depth = (baseline * focal_length) / disparity
+        # Add small epsilon to avoid division by zero
+        depth_image = np.divide(
+            self.baseline * self.focal_length,
+            np.maximum(disparity_image, 0.1),
+            out=np.full_like(disparity_image, 0.0),
+            where=disparity_image > 0.1
+        )
+        
+        # Create depth image message
+        depth_msg = Image()
+        depth_msg.header = msg.image.header
+        depth_msg.height = msg.image.height
+        depth_msg.width = msg.image.width
+        depth_msg.encoding = '32FC1'
+        depth_msg.is_bigendian = False
+        depth_msg.step = msg.image.width * 4  # 4 bytes per float32
+        depth_msg.data = depth_image.astype(np.float32).tobytes()
+        
+        # Publish depth image
+        self.depth_pub.publish(depth_msg)
+        
+        # Convert to point cloud
+        pointcloud_msg = self.depth_to_pointcloud(depth_image, msg.image.header)
+        if pointcloud_msg:
+            self.pointcloud_pub.publish(pointcloud_msg)
+    
+    def depth_to_pointcloud(self, depth_image, header):
+        """Convert depth image to point cloud"""
+        height, width = depth_image.shape
+        points = []
+        
+        # Generate pixel coordinates
+        u, v = np.meshgrid(np.arange(width), np.arange(height))
+        
+        # Convert pixel coordinates to 3D points
+        z = depth_image
+        x = (u - self.cx) * z / self.focal_length
+        y = (v - self.cy) * z / self.focal_length
+        
+        # Flatten and stack
+        points = np.stack([x.flatten(), y.flatten(), z.flatten()], axis=1)
+        
+        # Filter out invalid points (where depth is 0)
+        valid_points = points[points[:, 2] > 0]
+        
+        # Create PointCloud2 message (simplified)
+        from sensor_msgs.msg import PointCloud2, PointField
+        import std_msgs.msg
+        
+        # Create PointCloud2 message
+        pc2_msg = PointCloud2()
+        pc2_msg.header = header
+        pc2_msg.height = 1
+        pc2_msg.width = len(valid_points)
+        pc2_msg.fields = [
+            PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
+            PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
+            PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1)
+        ]
+        pc2_msg.is_bigendian = False
+        pc2_msg.point_step = 12  # 3 * 4 bytes for x, y, z as float32
+        pc2_msg.row_step = pc2_msg.point_step * pc2_msg.width
+        pc2_msg.is_dense = True
+        pc2_msg.data = valid_points.astype(np.float32).tobytes()
+        
+        return pc2_msg
+```
+
+## Optimizing Stereo Depth Estimation
+
+### Performance Optimization Techniques
+
+1. **Resolution Management**:
+   - Process at lower resolution for speed
+   - Use higher resolution for detail-sensitive tasks
+
+```python
+def adjust_processing_resolution(self, original_width, original_height, target_fps):
+    """
+    Adjust resolution based on target FPS
+    """
+    # Rule of thumb: stereo processing cost is roughly proportional to width * height
+    base_resolution = 640 * 480
+    base_fps = 15  # FPS at base resolution
+    
+    # Calculate target resolution based on desired FPS
+    adjustment_factor = base_fps / target_fps
+    area_factor = np.sqrt(adjustment_factor)
+    
+    new_width = int(original_width / area_factor)
+    new_height = int(original_height / area_factor)
+    
+    # Round to multiples of 32 for GPU optimization
+    new_width = (new_width // 32) * 32
+    new_height = (new_height // 32) * 32
+    
+    return new_width, new_height
+```
+
+2. **Parameter Tuning**:
+
+```python
+def tune_stereo_parameters_for_scene(self, scene_complexity):
+    """
+    Adjust stereo parameters based on scene complexity
+    """
+    if scene_complexity == 'simple':
+        # Simple scenes: less texture, need more accurate matching
+        params = {
+            'block_size': 11,  # Smaller for fine details
+            'uniqueness_ratio': 15,  # Higher for textureless regions
+            'speckle_window_size': 100,  # Less aggressive filtering
+        }
+    elif scene_complexity == 'complex':
+        # Complex scenes: more texture, faster matching
+        params = {
+            'block_size': 15,  # Larger for faster processing
+            'uniqueness_ratio': 5,  # Lower for detailed matching
+            'speckle_window_size': 200,  # More aggressive filtering
+        }
+    else:  # 'mixed'
+        params = {
+            'block_size': 13,
+            'uniqueness_ratio': 10,
+            'speckle_window_size': 150,
+        }
+    
+    return params
+```
+
+### Quality Optimization Techniques
+
+1. **Multi-scale Processing**:
+   - Compute depth at multiple scales
+   - Combine results for better quality
+
+2. **Temporal Filtering**:
+   - Use temporal consistency to improve depth maps
+   - Reduce noise in dynamic scenes
+
+```python
+class TemporalDepthFilter:
+    def __init__(self, alpha=0.7):
+        self.alpha = alpha  # Weight for current frame
+        self.prev_depth = None
+        
+    def filter_depth(self, current_depth):
+        """
+        Apply temporal filtering to reduce noise
+        """
+        if self.prev_depth is None:
+            self.prev_depth = current_depth.copy()
+            return current_depth
+            
+        # Apply exponential moving average
+        filtered_depth = self.alpha * current_depth + (1 - self.alpha) * self.prev_depth
+        self.prev_depth = filtered_depth.copy()
+        
+        return filtered_depth
+```
+
+## Integration with Isaac Sim
+
+### Validating Depth Estimation in Simulation
+
+```python
+def validate_depth_estimation_in_sim(robot, expected_depth_values):
+    """
+    Validate depth estimation accuracy in Isaac Sim simulation
+    """
+    # Get ground truth depth from Isaac Sim
+    ground_truth_depth = robot.get_ground_truth_depth()
+    
+    # Get estimated depth from Isaac ROS pipeline
+    estimated_depth = robot.get_estimated_depth()
+    
+    # Compute accuracy metrics
+    mse = np.mean((ground_truth_depth - estimated_depth) ** 2)
+    rmse = np.sqrt(mse)
+    
+    # Compute percentage of pixels within threshold
+    threshold = 0.1  # 10cm threshold
+    within_threshold = np.abs(ground_truth_depth - estimated_depth) < threshold
+    accuracy = np.mean(within_threshold) * 100
+    
+    return {
+        'rmse': rmse,
+        'accuracy_within_threshold': accuracy,
+        'mean_error': np.mean(ground_truth_depth - estimated_depth)
+    }
+```
+
+## Troubleshooting Depth Estimation
+
+### Common Issues and Solutions
+
+**Issue: Depth estimation performs poorly in low-texture areas**
+- **Cause**: Stereo matching algorithms rely on texture to find corresponding points
+- **Solution**: 
+  - Improve lighting to increase contrast
+  - Add artificial texture to surfaces if possible
+  - Use active illumination techniques
+  - Combine with other depth sensors (LiDAR)
+
+**Issue: Incorrect depth at object boundaries**
+- **Cause**: Disparity computation struggles with edges
+- **Solution**:
+  - Apply edge-preserving smoothing
+  - Use sub-pixel refinement
+  - Apply boundary masks
+
+**Issue: Noise in depth output**
+- **Cause**: Matching errors or sensor noise
+- **Solution**:
+  - Apply median filtering
+  - Use temporal consistency
+  - Apply confidence-based filtering
+
+### Quality Assessment
+
+Evaluate depth estimation quality using metrics:
+
+```python
+def assess_depth_quality(estimated_depth, ground_truth_depth):
+    """
+    Assess depth estimation quality using multiple metrics
+    """
+    # Mask out invalid pixels (where ground truth is 0)
+    valid_mask = ground_truth_depth > 0
+    valid_estimated = estimated_depth[valid_mask]
+    valid_ground_truth = ground_truth_depth[valid_mask]
+    
+    if len(valid_ground_truth) == 0:
+        return {}
+    
+    # Calculate metrics
+    mse = np.mean((valid_estimated - valid_ground_truth) ** 2)
+    rmse = np.sqrt(mse)
+    mae = np.mean(np.abs(valid_estimated - valid_ground_truth))
+    
+    # Percentage of pixels within various thresholds
+    thresholds = [0.05, 0.1, 0.2, 0.5, 1.0]  # meters
+    accuracy_metrics = {}
+    for t in thresholds:
+        within_threshold = np.abs(valid_estimated - valid_ground_truth) < t
+        accuracy_metrics[f'accuracy_within_{t}m'] = np.mean(within_threshold) * 100
+    
+    return {
+        'rmse': rmse,
+        'mae': mae,
+        'accuracy_metrics': accuracy_metrics
+    }
+```
+
+## Performance Considerations
+
+### GPU Optimization
+
+Isaac ROS leverages NVIDIA GPUs for acceleration:
+
+```python
+def optimize_gpu_usage():
+    """
+    Optimize GPU usage for stereo processing
+    """
+    gpu_config = {
+        # Memory management
+        'cuda_memory_pool_size': '2048MB',  # GPU memory allocation
+        
+        # Processing parameters
+        'max_processing_batch_size': 1,     # Batch size for processing
+        
+        # TensorRT optimization
+        'use_tensorrt': True,
+        'tensorrt_precision': 'fp16',       # Use FP16 for faster processing
+        
+        # Pipeline optimization
+        'use_async_processing': True,       # Asynchronous processing
+        'pipeline_depth': 2                 # Depth of processing pipeline
+    }
+    
+    return gpu_config
+```
+
+### Real-time Constraints
+
+For real-time robotics applications:
+
+```python
+def ensure_realtime_performance(target_fps, stereo_baseline):
+    """
+    Adjust parameters to meet real-time constraints
+    """
+    # Compute theoretical limits
+    # Processing time per pixel is roughly constant for GPU-based stereo
+    # But accuracy may require trade-offs
+    
+    realtime_config = {
+        # Adjust image resolution based on target FPS
+        'image_resolution': (640, 480) if target_fps >= 30 else (320, 240),
+        
+        # Reduce stereo parameters for speed
+        'num_disparities': 64 if stereo_baseline > 0.1 else 48,
+        'block_size': 11 if target_fps >= 30 else 15,
+        
+        # Enable acceleration
+        'use_gpu_acceleration': True,
+        'use_tensorrt': True
+    }
+    
+    return realtime_config
+```
+
+## Best Practices
+
+### 1. Validation and Testing
+
+1. Test with ground truth in simulation
+2. Validate on diverse real-world scenes
+3. Monitor performance across different lighting conditions
+4. Verify accuracy at different distances
+
+### 2. Parameter Selection
+
+1. Start with default Isaac ROS parameters
+2. Tune for your specific use case
+3. Consider baseline-to-distance ratios
+4. Account for computational constraints
+
+### 3. Calibration
+
+1. Ensure accurate camera calibration
+2. Verify baseline measurement precision
+3. Check rectification quality
+4. Regular calibration validation
+
+## Next Steps
+
+With depth estimation implemented, you can:
+
+1. Build more complex perception pipelines that use depth information  
+2. Implement 3D object detection and reconstruction
+3. Create occupancy maps for navigation
+4. Develop manipulation capabilities that use depth information
+
+In the following chapters, we'll explore other Isaac ROS perception capabilities including object detection, semantic segmentation, and how to combine multiple perception modules into integrated robotics systems.

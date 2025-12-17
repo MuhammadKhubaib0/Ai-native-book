@@ -1,0 +1,8 @@
+{
+  "label": "Nav2 for Humanoid Navigation",
+  "position": 4,
+  "link": {
+    "type": "generated-index",
+    "description": "Learn about configuring Nav2 for bipedal humanoid path planning and obstacle avoidance."
+  }
+}

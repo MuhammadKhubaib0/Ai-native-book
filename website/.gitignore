@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Production builds
+build/
+
+# Environment variables
+.env*
+!.env.example
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor specific files
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Docusaurus cache
+.cache/
+
+# Docusaurus docs
+.api/
+
+# npm debug log
+npm-debug.log*
+
+# Temporary file created by running tests
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/

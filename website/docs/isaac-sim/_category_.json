@@ -1,0 +1,8 @@
+{
+  "label": "NVIDIA Isaac Sim",
+  "position": 1,
+  "link": {
+    "type": "generated-index",
+    "description": "Learn about NVIDIA Isaac Sim for photorealistic robot simulation and USD workflows."
+  }
+}

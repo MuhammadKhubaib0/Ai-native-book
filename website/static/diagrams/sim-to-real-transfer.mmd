@@ -1,0 +1,39 @@
+graph TB
+    subgraph "Simulation Domain (S)"
+        A[Domain Randomization]
+        B[Physics Parameters]
+        C[Visual Properties]
+    end
+    
+    subgraph "Reality Domain (R)"
+        D[Real Robot]
+        E[Real Physics]
+        F[Real Visual Properties]
+    end
+    
+    subgraph "Transfer Process"
+        G[System Identification]
+        H[Parameter Adjustment]
+        I[Testing & Validation]
+    end
+    
+    A --> G
+    B --> G
+    C --> G
+    D --> G
+    E --> G
+    F --> G
+    
+    G --> H
+    H --> I
+    I --> D
+    
+    style A fill:#cde4ff
+    style B fill:#cde4ff
+    style C fill:#cde4ff
+    style D fill:#f9c
+    style E fill:#f9c
+    style F fill:#f9c
+    style G fill:#9fc
+    style H fill:#9fc
+    style I fill:#9fc

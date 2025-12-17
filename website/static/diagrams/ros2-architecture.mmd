@@ -1,0 +1,30 @@
+graph LR
+    subgraph "Robot System"
+        A[Node: Camera Driver] 
+        B[Node: Localization]
+        C[Node: Navigation]
+        D[Node: Controller]
+    end
+    
+    subgraph "ROS 2 Middleware (DDS)"
+        E[Topic Communication]
+        F[Service Communication] 
+        G[Action Communication]
+    end
+    
+    A --> E
+    B --> E
+    C --> F
+    D --> G
+    E --> A
+    E --> B
+    F --> C
+    G --> D
+    
+    style A fill:#e1f5fe
+    style B fill:#e1f5fe
+    style C fill:#e1f5fe
+    style D fill:#e1f5fe
+    style E fill:#f3e5f5
+    style F fill:#f3e5f5
+    style G fill:#f3e5f5

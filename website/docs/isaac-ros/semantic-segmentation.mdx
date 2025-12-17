@@ -1,0 +1,831 @@
+---
+sidebar_position: 6
+title: "Semantic Segmentation with Isaac ROS"
+description: "Implementing semantic segmentation using Isaac ROS packages for scene understanding"
+---
+
+# Semantic Segmentation with Isaac ROS
+
+## Introduction to Semantic Segmentation
+
+Semantic segmentation is a computer vision task that assigns a semantic label to each pixel in an image, enabling robots to understand scene composition at a detailed level. Unlike object detection which identifies objects with bounding boxes, semantic segmentation provides pixel-level understanding of the environment, allowing robots to identify drivable surfaces, obstacles, different object types, and other scene elements with spatial precision.
+
+Isaac ROS provides optimized semantic segmentation packages that leverage NVIDIA's GPU acceleration to achieve real-time performance for robotics applications, making it practical for mobile robots, autonomous systems, and manipulation tasks.
+
+## Understanding Semantic Segmentation in Robotics
+
+### Key Applications
+
+Semantic segmentation in robotics enables:
+
+1. **Navigation**: Identifying drivable terrain vs obstacles
+2. **Manipulation**: Understanding object shapes and boundaries
+3. **Scene Understanding**: Recognizing different environment types
+4. **Safety**: Identifying hazardous areas or objects
+
+### Segmentation vs. Detection
+
+While object detection provides bounding boxes around objects, semantic segmentation provides:
+
+- Pixel-level object boundaries
+- Understanding of object shapes and topology
+- Ability to distinguish between connected objects
+- Detailed spatial relationships
+
+## Isaac ROS Segmentation Packages
+
+### Isaac ROS Image Segmentation
+
+The `isaac_ros_image_segmentation` package provides optimized image segmentation capabilities:
+
+```yaml
+# Example configuration for image segmentation node
+image_segmentation_config:
+  # Model parameters
+  model_file_path: "/path/to/segmentation_model.plan"
+  input_tensor_names: ["input_tensor"]
+  output_tensor_names: ["output_tensor"]
+  input_formats: ["nitros_tensor_list_nchw_rgb_f32"]
+  output_formats: ["nitros_tensor_list_nchw_rgb_f32"]
+  
+  # Preprocessing
+  enable_padding: true
+  pad_color: [123.0, 117.0, 104.0]  # ImageNet mean
+  
+  # Output configuration
+  colormap_file_path: "/path/to/colormap.json"  # For visualization
+  
+  # Performance
+  max_batch_size: 1
+  tensorrt_precision: "fp16"
+```
+
+### Isaac ROS Segmentation Postprocessor
+
+The postprocessing node converts raw network outputs to semantic segmentation masks:
+
+```yaml
+# Configuration for postprocessing node
+segmentation_postprocessor_config:
+  # Input configuration
+  input_topic: "/segmentation_raw"
+  output_topic: "/segmentation_mask"
+  
+  # Processing parameters
+  confidence_threshold: 0.7
+  colormap: "coco_colormap"  # Predefined or custom colormap
+  
+  # Output format
+  output_encoding: "mono8"  # Grayscale encoding of class IDs
+  apply_colormap: true       # Also output colorized version for visualization
+```
+
+## Implementation with Isaac ROS
+
+### Basic Segmentation Node
+
+```python
+# semantic_segmentation_node.py
+from sensor_msgs.msg import Image
+from vision_msgs.msg import SegmentedObjectArray, SegmentedObject
+from std_msgs.msg import Header
+from cv_bridge import CvBridge
+import rclpy
+from rclpy.node import Node
+import numpy as np
+import cv2
+from typing import Dict, List, Tuple
+
+class IsaacROSSemanticSegmenter(Node):
+    def __init__(self):
+        super().__init__('isaac_ros_semantic_segmenter')
+        
+        # Create subscribers
+        self.image_sub = self.create_subscription(
+            Image, '/camera/image_raw', self.image_callback, 10)
+        
+        # Create publishers
+        self.segmentation_pub = self.create_publisher(
+            Image, '/segmentation_mask', 10)
+        self.segmented_objects_pub = self.create_publisher(
+            SegmentedObjectArray, '/segmented_objects', 10)
+        self.visualization_pub = self.create_publisher(
+            Image, '/segmentation_visualization', 10)
+        
+        # Initialize components
+        self.bridge = CvBridge()
+        self.class_colormap = self.create_coco_colormap()
+        self.class_names = self.get_coco_class_names()
+        
+    def get_coco_class_names(self) -> List[str]:
+        """
+        Get COCO dataset class names
+        """
+        return [
+            'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 
+            'truck', 'boat', 'traffic light', 'fire hydrant', 'stop sign', 
+            'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 
+            'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 
+            'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 
+            'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 
+            'surfboard', 'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 
+            'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange', 
+            'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 
+            'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 
+            'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 
+            'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 
+            'scissors', 'teddy bear', 'hair drier', 'toothbrush'
+        ]
+        
+    def create_coco_colormap(self) -> Dict[int, Tuple[int, int, int]]:
+        """
+        Create a colormap for COCO classes
+        """
+        # Generate distinct colors for each class
+        np.random.seed(42)  # For reproducible colors
+        colormap = {}
+        
+        for i in range(len(self.get_coco_class_names())):
+            # Generate random RGB values
+            color = tuple(np.random.randint(0, 255, size=3).tolist())
+            colormap[i] = color
+            
+        # Ensure background (class 0) is black
+        colormap[0] = (0, 0, 0)
+        
+        return colormap
+    
+    def image_callback(self, msg):
+        """
+        Process incoming image and perform semantic segmentation
+        """
+        try:
+            # Convert ROS Image to OpenCV format
+            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='rgb8')
+            
+            # Perform semantic segmentation
+            segmentation_mask = self.run_semantic_segmentation(cv_image)
+            
+            # Publish raw segmentation mask
+            mask_msg = self.bridge.cv2_to_imgmsg(segmentation_mask.astype(np.uint8), encoding='mono8')
+            mask_msg.header = msg.header
+            self.segmentation_pub.publish(mask_msg)
+            
+            # Generate segmented objects
+            segmented_objects_msg = self.create_segmented_objects_msg(
+                segmentation_mask, msg.header
+            )
+            self.segmented_objects_pub.publish(segmented_objects_msg)
+            
+            # Create visualization
+            vis_image = self.visualize_segmentation(cv_image, segmentation_mask)
+            vis_msg = self.bridge.cv2_to_imgmsg(vis_image, encoding='rgb8')
+            vis_msg.header = msg.header
+            self.visualization_pub.publish(vis_msg)
+            
+        except Exception as e:
+            self.get_logger().error(f'Error in semantic segmentation: {str(e)}')
+    
+    def run_semantic_segmentation(self, image):
+        """
+        Run semantic segmentation on the input image
+        This is a simplified representation - actual implementation would use Isaac ROS nodes
+        """
+        # In a real implementation, this would interface with Isaac ROS segmentation nodes
+        # For demonstration, we'll simulate segmentation results
+        height, width = image.shape[:2]
+        
+        # Create a mock segmentation mask
+        segmentation_mask = np.zeros((height, width), dtype=np.uint8)
+        
+        # Simulate some segmentation results
+        # In reality, this would come from a neural network
+        # Create some mock regions for different classes
+        
+        # Person in the center
+        center_x, center_y = width // 2, height // 2
+        cv2.circle(segmentation_mask, (center_x, center_y), 100, 1, thickness=-1)
+        
+        # Chair in the top right
+        cv2.rectangle(segmentation_mask, (width - 150, 50), (width - 50, 150), 56, thickness=-1)
+        
+        # Plant in the bottom left
+        cv2.rectangle(segmentation_mask, (50, height - 100), (150, height - 50), 58, thickness=-1)
+        
+        return segmentation_mask
+    
+    def create_segmented_objects_msg(self, segmentation_mask, header):
+        """
+        Create SegmentedObjectArray message from segmentation mask
+        """
+        segmented_objects_msg = SegmentedObjectArray()
+        segmented_objects_msg.header = header
+        
+        # Find unique classes in the segmentation mask (excluding background)
+        unique_classes = np.unique(segmentation_mask)
+        unique_classes = unique_classes[unique_classes != 0]  # Exclude background
+        
+        for class_id in unique_classes:
+            if class_id >= len(self.class_names):
+                continue  # Skip if class ID is out of range
+                
+            # Create a mask for this class
+            class_mask = (segmentation_mask == class_id).astype(np.uint8) * 255
+            
+            # Find contours to get bounding boxes
+            contours, _ = cv2.findContours(class_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            for contour in contours:
+                # Create SegmentedObject
+                obj = SegmentedObject()
+                
+                # Calculate bounding box
+                x, y, w, h = cv2.boundingRect(contour)
+                obj.bounding_box.center.x = x + w / 2
+                obj.bounding_box.center.y = y + h / 2
+                obj.bounding_box.size_x = w
+                obj.bounding_box.size_y = h
+                
+                # Set object ID (classification)
+                obj.object_name = self.class_names[class_id] if class_id < len(self.class_names) else f"unknown_{class_id}"
+                
+                # Add to array
+                segmented_objects_msg.segmented_objects.append(obj)
+        
+        return segmented_objects_msg
+    
+    def visualize_segmentation(self, image, segmentation_mask):
+        """
+        Create color visualization of segmentation results
+        """
+        # Create color mask
+        color_mask = np.zeros((segmentation_mask.shape[0], segmentation_mask.shape[1], 3), dtype=np.uint8)
+        
+        # Apply colors based on the colormap
+        for class_id, color in self.class_colormap.items():
+            color_mask[segmentation_mask == class_id] = color
+        
+        # Blend the original image with the color mask
+        alpha = 0.5  # Transparency factor
+        blended = cv2.addWeighted(image, 1 - alpha, color_mask, alpha, 0)
+        
+        return blended
+```
+
+### Launch File for Semantic Segmentation
+
+```python
+# semantic_segmentation.launch.py
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import ComposableNodeContainer
+from launch_ros.descriptions import ComposableNode
+import os
+
+def generate_launch_description():
+    # Launch arguments
+    image_topic = LaunchConfiguration('image_topic', default='/camera/image_rect_color')
+    
+    # Path to the TensorRT segmentation model
+    trt_engine_file_path = LaunchConfiguration(
+        'trt_engine_file_path', 
+        default='/path/to/segmentation_model.plan'
+    )
+    
+    # Colormap file
+    colormap_path = LaunchConfiguration(
+        'colormap_path',
+        default='/path/to/colormap.json'
+    )
+    
+    container = ComposableNodeContainer(
+        name='semantic_segmentation_container',
+        namespace='segmentation',
+        package='rclcpp_components',
+        executable='component_container_mt',
+        composable_node_descriptions=[
+            # Segmentation model inference
+            ComposableNode(
+                package='isaac_ros_tensor_rt',
+                plugin='nvidia::isaac_ros::tensor_rt::EngineSubscriberNode',
+                name='tensor_rt_engine_subscriber',
+                parameters=[{
+                    'engine_file_path': trt_engine_file_path,
+                    'input_tensor_names': ['input_tensor'],
+                    'output_tensor_names': ['output_tensor'],
+                    'input_binding_names': ['input'],
+                    'output_binding_names': ['output'],
+                    'max_batch_size': 1,
+                    'input_tensor_formats': ['nitros_tensor_list_nchw_rgb_f32'],
+                    'output_tensor_formats': ['nitros_tensor_list_nchw_rgb_f32'],
+                    'verbose': False,
+                    'enable_profiling': False,
+                    'profiling_output_file_path': '/tmp/trt_profiling.json'
+                }],
+                remappings=[
+                    ('tensor_sub', 'tensor_input'),
+                    ('tensor_pub', 'segmentation_raw')
+                ]
+            ),
+            
+            # Segmentation postprocessor
+            ComposableNode(
+                package='isaac_ros_image_segmentation',
+                plugin='nvidia::isaac_ros::segmentation::SegmentationNode',
+                name='segmentation_postprocessor',
+                parameters=[{
+                    'colormap_file_path': colormap_path,
+                    'confidence_threshold': 0.7,
+                    'output_encoding': 'mono8',
+                    'apply_colormap': True
+                }],
+                remappings=[
+                    ('tensor', 'segmentation_raw'),
+                    ('segmentation_map', 'segmentation_mask'),
+                    ('segmentation_color', 'segmentation_colorized')
+                ]
+            )
+        ]
+    )
+
+    return LaunchDescription([
+        container,
+        DeclareLaunchArgument(
+            'image_topic',
+            default_value='/camera/image_rect_color',
+            description='Input image topic'
+        ),
+        DeclareLaunchArgument(
+            'trt_engine_file_path',
+            default_value='/path/to/segmentation_model.plan',
+            description='Path to TensorRT engine file for segmentation'
+        ),
+        DeclareLaunchArgument(
+            'colormap_path',
+            default_value='/path/to/colormap.json',
+            description='Path to colormap JSON file'
+        )
+    ])
+```
+
+## Advanced Segmentation Concepts
+
+### Panoptic Segmentation
+
+Combining instance segmentation with semantic segmentation:
+
+```python
+# Panoptic segmentation combines instance and semantic segmentation
+# This provides both class labels and instance identification
+class PanopticSegmenter:
+    def __init__(self):
+        self.semantic_segmenter = IsaacROSSemanticSegmenter()
+        self.instance_segmenter = InstanceSegmenter()  # Would be a separate component
+        
+    def panoptic_segmentation(self, image):
+        """
+        Combine semantic and instance segmentation results
+        """
+        # Get semantic segmentation
+        semantic_mask = self.semantic_segmenter.run_semantic_segmentation(image)
+        
+        # Get instance segmentation (for thing classes)
+        instance_results = self.instance_segmenter.run_instance_segmentation(image)
+        
+        # Combine results
+        panoptic_result = self.combine_semantic_instance(
+            semantic_mask, instance_results
+        )
+        
+        return panoptic_result
+    
+    def combine_semantic_instance(self, semantic_mask, instance_results):
+        """
+        Combine semantic and instance segmentation
+        """
+        # For "stuff" classes (background), use semantic segmentation
+        # For "thing" classes (objects), use instance segmentation
+        
+        # Example mapping
+        stuff_classes = {0, 1, 2, 3, 4, 5}  # Examples: sky, road, terrain, vegetation
+        thing_classes = {6, 7, 8, 9, 10}    # Examples: person, car, bicycle
+        
+        # Create panoptic mask
+        panoptic_mask = semantic_mask.copy()
+        
+        # For thing classes, use instance IDs instead of class IDs
+        for i, instance in enumerate(instance_results):
+            # Get instance mask
+            inst_mask = instance['mask']
+            class_id = instance['class_id']
+            
+            if class_id in thing_classes:
+                # Use instance ID in panoptic result
+                # Format: [semantic_id * 1000 + instance_id]
+                instance_id = i + 1  # Start from 1 to avoid background conflict
+                panoptic_mask[inst_mask] = class_id * 1000 + instance_id
+        
+        return panoptic_mask
+```
+
+### Multi-Task Learning
+
+Training models that perform multiple perception tasks:
+
+```python
+# Example of a network that performs multiple tasks
+class MultiTaskSegmentationNet:
+    """
+    A network that performs semantic segmentation along with other tasks
+    """
+    def __init__(self):
+        # Shared backbone features
+        self.backbone = self.create_backbone()
+        
+        # Task-specific heads
+        self.segmentation_head = self.create_segmentation_head()
+        self.depth_head = self.create_depth_head()
+        self.normal_head = self.create_normal_head()
+        
+    def create_backbone(self):
+        """Create shared feature extraction backbone"""
+        # Could be ResNet, EfficientNet, etc.
+        pass
+        
+    def create_segmentation_head(self):
+        """Create segmentation-specific head"""
+        pass
+        
+    def create_depth_head(self):
+        """Create depth estimation head"""
+        pass
+        
+    def create_normal_head(self):
+        """Create surface normal estimation head"""
+        pass
+        
+    def forward(self, x):
+        """Forward pass with multiple outputs"""
+        features = self.backbone(x)
+        
+        segmentation = self.segmentation_head(features)
+        depth = self.depth_head(features)
+        normals = self.normal_head(features)
+        
+        return {
+            'segmentation': segmentation,
+            'depth': depth,
+            'normals': normals
+        }
+```
+
+## Performance Optimization
+
+### Model Optimization Techniques
+
+```python
+def optimize_segmentation_model(trt_engine_path, precision='fp16', max_batch_size=1):
+    """
+    Optimize segmentation model for TensorRT
+    """
+    import tensorrt as trt
+    
+    TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
+    builder = trt.Builder(TRT_LOGGER)
+    
+    # Create network
+    network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+    config = builder.create_builder_config()
+    
+    if precision == 'int8':
+        config.set_flag(trt.BuilderFlag.INT8)
+        # Add calibration for INT8
+    elif precision == 'fp16':
+        config.set_flag(trt.BuilderFlag.FP16)
+    
+    # Build engine with optimizations
+    config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 2 << 30)  # 2GB
+    
+    # Further optimization steps would follow here
+    
+    return f"Optimized {precision} segmentation engine for batch size {max_batch_size}"
+```
+
+### Memory and Computational Optimization
+
+```python
+def optimize_segmentation_pipeline(platform='jetson-agx-xavier'):
+    """
+    Optimize segmentation pipeline for target platform
+    """
+    if platform.startswith('jetson-nano'):
+        # Limited compute and memory
+        config = {
+            'input_resolution': (480, 270),      # Lower resolution
+            'model_variant': 'efficientnet-b0',  # Lightweight backbone
+            'tensorrt_precision': 'fp16',        # Use FP16
+            'max_batch_size': 1,                 # Single frame processing
+            'output_stride': 16,                 # Larger stride for efficiency
+            'crop_size': (480, 270),            # Process full image
+        }
+    elif platform.startswith('jetson-xavier') or platform.startswith('jetson-agx'):
+        # More powerful platform
+        config = {
+            'input_resolution': (640, 480),      # Higher resolution
+            'model_variant': 'mobilenet-v3',     # Balanced performance
+            'tensorrt_precision': 'fp16',        # Use FP16
+            'max_batch_size': 1,                 # Single frame processing
+            'output_stride': 8,                  # Better accuracy
+            'crop_size': (640, 480),            # Process full image
+        }
+    else:
+        # PC-based system
+        config = {
+            'input_resolution': (720, 540),      # High resolution
+            'model_variant': 'resnet-50',        # High accuracy backbone
+            'tensorrt_precision': 'fp16',        # Use FP16 for speed
+            'max_batch_size': 1,                 # Single frame processing
+            'output_stride': 8,                  # Best accuracy
+            'crop_size': (720, 540),            # Process full image
+        }
+    
+    return config
+```
+
+## Integration with Robotics Applications
+
+### Navigation Integration
+
+Using segmentation for navigation:
+
+```python
+class SegmentationBasedNavigator:
+    def __init__(self, path_planner):
+        self.path_planner = path_planner
+        self.driveable_classes = {0, 1, 2, 3}  # Examples: road, sidewalk, terrain
+        self.obstacle_classes = {5, 6, 7}      # Examples: person, car, bicycle
+        
+    def update_costmap_from_segmentation(self, segmentation_mask, robot_pose):
+        """
+        Update navigation costmap based on segmentation results
+        """
+        height, width = segmentation_mask.shape
+        map_resolution = 0.05  # 5 cm per cell
+        
+        # Convert segmentation mask to costmap
+        for y in range(height):
+            for x in range(width):
+                class_id = segmentation_mask[y, x]
+                
+                # Convert image coordinates to map coordinates
+                map_x = robot_pose[0] + (x - width/2) * map_resolution
+                map_y = robot_pose[1] + (y - height/2) * map_resolution
+                
+                if class_id in self.obstacle_classes:
+                    # Mark as obstacle in costmap
+                    self.path_planner.update_costmap_cell(
+                        map_x, map_y, cost=254  # High cost
+                    )
+                elif class_id in self.driveable_classes:
+                    # Mark as free space with low cost
+                    self.path_planner.update_costmap_cell(
+                        map_x, map_y, cost=0    # Low cost
+                    )
+                else:
+                    # Unknown class, assign medium cost
+                    self.path_planner.update_costmap_cell(
+                        map_x, map_y, cost=100  # Medium cost
+                    )
+    
+    def identify_traversable_path(self, segmentation_mask):
+        """
+        Identify potentially traversable regions from segmentation
+        """
+        traversable_mask = np.zeros_like(segmentation_mask, dtype=np.uint8)
+        
+        # Mark driveable surfaces
+        for class_id in self.driveable_classes:
+            traversable_mask[segmentation_mask == class_id] = 255
+        
+        return traversable_mask
+```
+
+### Manipulation Integration
+
+Using segmentation for object manipulation:
+
+```python
+class SegmentationBasedManipulator:
+    def __init__(self, arm_controller):
+        self.arm_controller = arm_controller
+        self.graspable_classes = {39, 40, 41, 43}  # Examples: cup, fork, knife, bowl
+        
+    def find_graspable_objects(self, segmentation_mask, camera_info):
+        """
+        Find objects that can be grasped based on segmentation
+        """
+        graspable_objects = []
+        
+        # Find contours for each graspable class
+        for class_id in self.graspable_classes:
+            if class_id >= len(self.class_names):
+                continue
+                
+            # Create mask for this class
+            class_mask = (segmentation_mask == class_id).astype(np.uint8) * 255
+            
+            # Find contours
+            contours, _ = cv2.findContours(
+                class_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            )
+            
+            for contour in contours:
+                # Calculate properties
+                area = cv2.contourArea(contour)
+                if area < 100:  # Skip tiny regions
+                    continue
+                    
+                # Calculate center of mass
+                M = cv2.moments(contour)
+                if M["m00"] != 0:
+                    cX = int(M["m10"] / M["m00"])
+                    cY = int(M["m01"] / M["m00"])
+                    
+                    # Convert to 3D world coordinates
+                    world_pos = self.pixel_to_world((cX, cY), camera_info)
+                    
+                    obj_info = {
+                        'class_name': self.class_names[class_id],
+                        'center_2d': (cX, cY),
+                        'world_position': world_pos,
+                        'contour': contour,
+                        'area': area
+                    }
+                    
+                    graspable_objects.append(obj_info)
+        
+        # Sort by area (larger objects first)
+        graspable_objects.sort(key=lambda x: x['area'], reverse=True)
+        
+        return graspable_objects
+    
+    def pixel_to_world(self, pixel_coords, camera_info):
+        """
+        Convert pixel coordinates to 3D world coordinates
+        This requires depth information
+        """
+        # Implementation would use depth map to convert 2D pixels to 3D
+        # For now, return a placeholder
+        return [0.0, 0.0, 0.0]
+```
+
+## Quality Assessment and Evaluation
+
+### Segmentation Quality Metrics
+
+```python
+def calculate_segmentation_metrics(true_mask, pred_mask, num_classes):
+    """
+    Calculate semantic segmentation metrics
+    """
+    # Calculate Intersection over Union (IoU) for each class
+    ious = []
+    
+    for class_id in range(num_classes):
+        # Create binary masks for this class
+        true_class = (true_mask == class_id).astype(np.uint8)
+        pred_class = (pred_mask == class_id).astype(np.uint8)
+        
+        # Calculate intersection and union
+        intersection = np.logical_and(true_class, pred_class).sum()
+        union = np.logical_or(true_class, pred_class).sum()
+        
+        if union == 0:
+            iou = 1.0 if intersection == 0 else 0.0  # Perfect match or no pixels
+        else:
+            iou = intersection / union
+            
+        ious.append(iou)
+    
+    # Calculate mean IoU (mIoU)
+    mean_iou = np.mean(ious)
+    
+    # Calculate pixel accuracy
+    pixel_accuracy = np.mean(true_mask == pred_mask)
+    
+    # Calculate per-class accuracy
+    class_accuracies = []
+    for class_id in range(num_classes):
+        class_mask = (true_mask == class_id)
+        if np.sum(class_mask) > 0:
+            class_acc = np.mean(pred_mask[class_mask] == class_id)
+            class_accuracies.append(class_acc)
+        else:
+            class_accuracies.append(1.0)  # If no pixels of class, accuracy is 1
+    
+    mean_class_accuracy = np.mean(class_accuracies)
+    
+    return {
+        'iou_per_class': ious,
+        'mean_iou': mean_iou,
+        'pixel_accuracy': pixel_accuracy,
+        'class_accuracy_per_class': class_accuracies,
+        'mean_class_accuracy': mean_class_accuracy
+    }
+```
+
+## Troubleshooting Segmentation
+
+### Common Issues and Solutions
+
+**Issue: Blurry segment boundaries**
+- **Cause**: Low-resolution model or insufficient context
+- **Solution**:
+  - Use higher resolution inputs
+  - Implement boundary refinement networks
+  - Apply post-processing with CRF (Conditional Random Fields)
+
+**Issue: Inconsistent segmentation across frames**
+- **Cause**: Model instability or temporal inconsistencies
+- **Solution**:
+  - Apply temporal smoothing
+  - Use optical flow for temporal consistency
+  - Implement post-processing filters
+
+**Issue: Poor performance on small objects**
+- **Cause**: Limited receptive field or model scale
+- **Solution**:
+  - Use multi-scale inputs
+  - Implement attention mechanisms
+  - Use pyramid pooling structures
+
+### Performance Monitoring
+
+```python
+class SegmentationPerformanceMonitor:
+    def __init__(self):
+        self.inference_times = []
+        self.memory_usage = []
+        self.segmentation_quality = []
+        
+    def record_performance(self, inference_time_ms, memory_mb, m_iou):
+        """Record performance metrics"""
+        self.inference_times.append(inference_time_ms)
+        self.memory_usage.append(memory_mb)
+        self.segmentation_quality.append(m_iou)
+        
+    def get_performance_summary(self):
+        """Get performance summary statistics"""
+        if not self.inference_times:
+            return {}
+            
+        return {
+            'avg_inference_time_ms': sum(self.inference_times) / len(self.inference_times),
+            'avg_memory_mb': sum(self.memory_usage) / len(self.memory_usage) if self.memory_usage else 0,
+            'avg_mIoU': sum(self.segmentation_quality) / len(self.segmentation_quality) if self.segmentation_quality else 0,
+            'min_inference_time_ms': min(self.inference_times),
+            'max_inference_time_ms': max(self.inference_times),
+            'std_inference_time_ms': np.std(self.inference_times)
+        }
+```
+
+## Best Practices
+
+### 1. Model Selection
+
+1. Choose model based on:
+   - Computational constraints
+   - Required accuracy
+   - Input resolution needs
+   - Target frame rate
+
+2. Consider model architectures:
+   - DeepLab for high accuracy
+   - ENet for efficiency
+   - BiSeNet for real-time applications
+
+### 2. Training Considerations
+
+1. Use diverse training data
+2. Include domain-specific scenarios
+3. Apply appropriate data augmentation
+4. Validate on real hardware
+
+### 3. Deployment Optimization
+
+1. Use TensorRT for NVIDIA hardware
+2. Optimize for target resolution
+3. Implement efficient post-processing
+4. Monitor resource usage
+
+## Next Steps
+
+With semantic segmentation implemented, you can:
+
+1. Combine segmentation with depth estimation for 3D scene understanding
+2. Integrate segmentation into navigation and manipulation pipelines  
+3. Create perception systems that understand complex environments
+4. Develop custom segmentation models for specific robot applications
+
+In the following chapters, we'll explore how to create perception pipelines combining multiple Isaac ROS capabilities and how to optimize these systems for deployment on Jetson platforms.

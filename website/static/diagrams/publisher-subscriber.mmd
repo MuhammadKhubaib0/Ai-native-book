@@ -1,0 +1,17 @@
+graph TD
+    A[Node: Publisher] -->|Topic: /chatter| B(RDDS Middleware)
+    C[Node: Subscriber] -->|Topic: /chatter| B
+    D[Node: Service Server] -->|Service: /add_two_ints| E(RDDS Middleware)
+    F[Node: Service Client] -->|Service: /add_two_ints| E
+    
+    subgraph "ROS 2 Network"
+        B
+        E
+    end
+    
+    style A fill:#cde4ff
+    style C fill:#cde4ff
+    style D fill:#cde4ff
+    style F fill:#cde4ff
+    style B fill:#f9f
+    style E fill:#f9f

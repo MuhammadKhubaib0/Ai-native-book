@@ -1,0 +1,110 @@
+---
+sidebar_position: 2
+title: "Isaac Sim Installation and Setup"
+description: "Complete guide to installing Isaac Sim and integrating with ROS 2 Humble"
+---
+
+# Isaac Sim Installation and Setup
+
+## System Requirements
+
+Before installing Isaac Sim, ensure your system meets the following requirements:
+
+### Hardware Requirements
+- NVIDIA GPU with RTX capability (RTX 20xx or higher recommended)
+- At least 8GB of RAM (16GB+ recommended)
+- 20GB of free disk space
+- Display with 1920x1080 resolution or higher
+
+### Software Requirements
+- Ubuntu 22.04 LTS or Windows 10/11
+- ROS 2 Humble Hawksbill
+- NVIDIA GPU drivers (version 520 or higher)
+- CUDA 11.8 or higher
+
+## Installing Isaac Sim
+
+### Option 1: Using Isaac Sim Package Manager (Recommended)
+
+1. Download the Isaac Sim Package Manager from the NVIDIA Developer website
+2. Extract the downloaded archive to your preferred location
+3. Run the setup script:
+   ```bash
+   ./isaac-sim-package-manager-setup.sh
+   ```
+
+### Option 2: Using Omniverse Launcher
+
+1. Install the Omniverse Launcher from the NVIDIA Developer website
+2. Launch the Omniverse Launcher
+3. Browse to Isaac Sim in the App Store
+4. Click "Install" to download and install Isaac Sim
+
+## Setting Up ROS 2 Integration
+
+### Installing Isaac ROS Bridge
+
+1. Create a new ROS 2 workspace:
+   ```bash
+   mkdir -p ~/isaac_ros_ws/src
+   cd ~/isaac_ros_ws
+   ```
+
+2. Clone the Isaac ROS common repository:
+   ```bash
+   git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common.git
+   ```
+
+3. Install dependencies:
+   ```bash
+   cd isaac_ros_common
+   ./scripts/setup_dev.sh
+   ```
+
+4. Build the workspace:
+   ```bash
+   cd ~/isaac_ros_ws
+   colcon build
+   source install/setup.bash
+   ```
+
+## Configuring Isaac Sim for ROS 2
+
+### Setting Environment Variables
+
+Add the following to your `~/.bashrc` file:
+```bash
+export ISAAC_ROS_WS=~/isaac_ros_ws
+export OMNI_USER_DATA_PATH=~/nvidia-omniverse
+```
+
+### Verifying Installation
+
+1. Launch Isaac Sim:
+   ```bash
+   cd ~/isaac-sim
+   ./isaac-sim.sh
+   ```
+
+2. In Isaac Sim, go to "Window" > "Extensions" and search for "ROS Bridge"
+3. Enable the ROS Bridge extension
+
+## Troubleshooting Common Issues
+
+### CUDA Compatibility Issues
+- Ensure your GPU driver version matches your CUDA version
+- Check compatibility using `nvidia-smi` and `nvcc --version`
+
+### Performance Issues
+- Lower the rendering quality in Isaac Sim settings
+- Reduce physics update frequency if not critical
+- Close unnecessary applications to free up GPU resources
+
+### ROS Bridge Connection Issues
+- Verify ROS 2 network configuration
+- Ensure both Isaac Sim and ROS 2 are using the same ROS_DOMAIN_ID
+- Check firewall settings if connecting across networks
+
+## Next Steps
+
+With Isaac Sim installed and ROS 2 integrated, you're ready to proceed to the next chapter where we'll cover importing robot models and creating your first simulation. The following chapter will guide you through the process of bringing your robot into the Isaac Sim environment and configuring its physical properties.

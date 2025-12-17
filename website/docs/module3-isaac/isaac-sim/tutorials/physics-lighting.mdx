@@ -1,0 +1,478 @@
+---
+sidebar_position: 6
+title: "Physics and Lighting Configuration"
+description: "Configuring physics properties and lighting in Isaac Sim for realistic simulation"
+---
+
+# Physics and Lighting Configuration
+
+## Overview
+
+Creating realistic simulations in Isaac Sim requires proper configuration of both physics properties and lighting conditions. These elements are crucial for achieving photorealistic rendering and accurate physical interactions that closely match real-world behavior. This tutorial covers how to configure physics properties for objects and robots, as well as how to set up realistic lighting in simulation environments.
+
+By the end of this tutorial, you will be able to:
+- Configure advanced physics properties for accurate simulation
+- Set up realistic lighting conditions in simulation environments
+- Optimize physics and lighting for performance while maintaining accuracy
+- Validate simulation results against real-world physics
+
+## Physics Configuration
+
+### Understanding Physics in Isaac Sim
+
+Isaac Sim uses NVIDIA PhysX for physics simulation, which provides high-fidelity rigid body dynamics, soft body simulation, and fluid simulation capabilities. Proper physics configuration is essential for:
+
+- Accurate robot motion and interactions
+- Realistic sensor simulation
+- Valid synthetic data generation
+
+### Configuring Rigid Body Dynamics
+
+#### Setting Up Physics Materials
+
+Physics materials define how objects interact with each other:
+
+```python
+# Example: Creating and applying a physics material
+from pxr import UsdPhysics, PhysxSchema, Gf
+import omni
+from omni.isaac.core.materials import PhysicsMaterial
+
+def create_physics_material(stage, path, static_friction=0.5, dynamic_friction=0.5, restitution=0.1):
+    """
+    Create a physics material with specified properties
+    """
+    # Create the material prim
+    material_prim = PhysxSchema.PhysxMaterial.Define(stage, path)
+    
+    # Set the material properties
+    material_prim.CreateStaticFrictionAttr(static_friction)
+    material_prim.CreateDynamicFrictionAttr(dynamic_friction)
+    material_prim.CreateRestitutionAttr(restitution)
+    
+    return material_prim
+
+def apply_material_to_object(prim_path, material_path):
+    """
+    Apply a physics material to an object
+    """
+    stage = omni.usd.get_context().get_stage()
+    prim = stage.GetPrimAtPath(prim_path)
+    
+    # Get or create material binding API
+    material_binding_api = UsdPhysics.MaterialBindingAPI(prim)
+    
+    # Apply material
+    material = stage.GetPrimAtPath(material_path)
+    material_binding_api.Bind(UsdShade.Material(material))
+```
+
+#### Configuring Collision Properties
+
+Proper collision configuration affects simulation accuracy and performance:
+
+```python
+# Example: Configuring collision properties for an object
+def configure_collision_properties(prim_path, approximation="convexHull"):
+    """
+    Configure collision properties for a prim
+    """
+    stage = omni.usd.get_context().get_stage()
+    prim = stage.GetPrimAtPath(prim_path)
+    
+    # Apply collision API
+    collision_api = UsdPhysics.CollisionAPI.Apply(prim)
+    
+    # Set collision approximation
+    # Options: "none", "convexHull", "convexDecomposition", "meshSimplification", "boundingCube", "boundingSphere"
+    collision_api.GetApproximationAttr().Set(approximation)
+    
+    # Enable collision
+    collision_api.GetCollisionEnabledAttr().Set(True)
+    
+    # Set additional collision properties
+    if collision_api:
+        # For complex shapes, use simplified collision geometry
+        if approximation == "convexDecomposition":
+            # This provides more accurate collision for complex shapes
+            collision_api.GetApproximationAttr().Set("convexDecomposition")
+```
+
+### Articulated Body Physics
+
+For robots with joints, special physics configuration is required:
+
+```python
+# Example: Configuring physics for articulated robots
+def configure_articulated_robot(robot_root_path):
+    """
+    Configure physics properties for an articulated robot
+    """
+    stage = omni.usd.get_context().get_stage()
+    robot_prim = stage.GetPrimAtPath(robot_root_path)
+    
+    # Apply articulation root API to the robot root
+    articulation_root_api = PhysxSchema.PhysxArticulationRootAPI.Apply(robot_prim)
+    articulation_root_api.GetEnabledSelfCollisionsAttr().Set(False)
+    
+    # Configure solver properties for better stability
+    articulation_root_api.GetSolverPositionIterationCountAttr().Set(4)
+    articulation_root_api.GetSolverVelocityIterationCountAttr().Set(1)
+    
+    # For each joint in the robot
+    for child in robot_prim.GetAllChildren():
+        if "joint" in str(child.GetPath()).lower():
+            configure_joint_properties(str(child.GetPath()))
+```
+
+### Configuring Joint Properties
+
+Proper joint configuration is critical for robot simulation:
+
+```python
+# Example: Configuring different types of joints
+def configure_joint_properties(joint_path):
+    """
+    Configure properties for different types of joints
+    """
+    stage = omni.usd.get_context().get_stage()
+    joint_prim = stage.GetPrimAtPath(joint_path)
+    
+    # Apply joint API
+    joint_api = PhysxSchema.PhysxJointAPI.Apply(joint_prim)
+    
+    # Example for a revolute joint
+    if "revolute" in joint_path.lower() or "hinge" in joint_path.lower():
+        # Set joint limits
+        joint_api.CreateLimitAttr().Set(PhysxSchema.PhysxJointLimitPair(-1.57, 1.57))  # -90° to 90°
+        
+        # Set drive properties for actuated joints
+        drive_api = PhysxSchema.PhysxRevoluteJointAPI.Apply(joint_prim)
+        drive_api.GetDriveTypeAttr().Set("force")
+        drive_api.GetDriveTargetAttr().Set(0.0)
+        drive_api.GetDriveStiffnessAttr().Set(1000.0)
+        drive_api.GetDriveDampingAttr().Set(100.0)
+```
+
+## Lighting Configuration
+
+### Understanding Lighting in Isaac Sim
+
+Isaac Sim provides several lighting options:
+- **Distant Light**: Represents the sun or other distant light sources
+- **Sphere Light**: Omnidirectional point light source
+- **Disk Light**: Area light source with defined radius
+- **Rect Light**: Rectangular area light source
+
+Proper lighting is critical for:
+- Photorealistic rendering
+- Accurate sensor simulation
+- Valid synthetic data generation
+
+### Setting Up Basic Lighting
+
+```python
+# Example: Adding and configuring lights
+from pxr import UsdLux, Gf
+import omni
+from omni.isaac.core.utils.prims import define_prim
+
+def setup_basic_lighting():
+    """
+    Set up basic lighting for a simulation scene
+    """
+    stage = omni.usd.get_context().get_stage()
+    
+    # Create a distant light (like the sun)
+    distant_light = UsdLux.DistantLight.Define(stage, "/World/DistantLight")
+    distant_light.CreateIntensityAttr(500)  # Light intensity
+    distant_light.CreateColorAttr(Gf.Vec3f(1.0, 0.98, 0.9))  # Slightly warm color
+    distant_light.AddRotateYOp().Set(-45)  # Rotate for realistic position
+    distant_light.AddRotateXOp().Set(-30)  # Angle from horizon
+    
+    # Add an ambient light to fill shadows
+    dome_light = UsdLux.DomeLight.Define(stage, "/World/DomeLight")
+    dome_light.CreateIntensityAttr(0.2)
+    dome_light.CreateColorAttr(Gf.Vec3f(0.5, 0.5, 0.5))
+    dome_light.CreateTextureFileAttr().Set("path/to/environment/map.hdr")
+    
+    return distant_light, dome_light
+```
+
+### Advanced Lighting Techniques
+
+#### Using HDR Environment Maps
+
+HDR environment maps provide realistic background lighting:
+
+```python
+def setup_hdr_lighting(hdr_path):
+    """
+    Set up HDR-based lighting using environment map
+    """
+    stage = omni.usd.get_context().get_stage()
+    
+    # Create dome light with HDR texture
+    dome_light = UsdLux.DomeLight.Define(stage, "/World/HDREnvironment")
+    dome_light.CreateIntensityAttr(1.0)
+    dome_light.CreateTextureFileAttr().Set(hdr_path)
+    
+    # Make sure it illuminates the scene
+    dome_light.CreateTextureFormatAttr("latlong")
+    
+    return dome_light
+```
+
+#### Area Lighting for Indoor Scenes
+
+For indoor environments, area lights create more realistic illumination:
+
+```python
+def setup_indoor_lighting():
+    """
+    Set up area lighting for indoor scenes
+    """
+    stage = omni.usd.get_context().get_stage()
+    
+    # Create rectangular area light
+    rect_light = UsdLux.RectLight.Define(stage, "/World/RectLight")
+    rect_light.CreateIntensityAttr(1000)
+    rect_light.CreateWidthAttr(2.0)   # 2m wide
+    rect_light.CreateHeightAttr(1.0)  # 1m high
+    rect_light.CreatePositionAttr(Gf.Vec3f(0, 0, 3.0))  # 3m above ground
+    rect_light.CreateColorAttr(Gf.Vec3f(0.95, 0.95, 1.0))  # Slightly blue-white
+    
+    # Add a second light for more even illumination
+    rect_light2 = UsdLux.RectLight.Define(stage, "/World/RectLight2")
+    rect_light2.CreateIntensityAttr(800)
+    rect_light2.CreateWidthAttr(1.5)
+    rect_light2.CreateHeightAttr(0.8)
+    rect_light2.CreatePositionAttr(Gf.Vec3f(2, 1, 2.5))
+    rect_light2.CreateColorAttr(Gf.Vec3f(1.0, 0.9, 0.8))  # Warmer light
+    
+    return [rect_light, rect_light2]
+```
+
+### Physics-Dependent Lighting
+
+For synthetic data generation, you can vary lighting conditions systematically:
+
+```python
+def configure_lighting_parameters(intensity_range=(100, 1000), color_temperature_range=(3000, 6500)):
+    """
+    Configure lighting parameters for domain randomization
+    """
+    import random
+    
+    stage = omni.usd.get_context().get_stage()
+    
+    # Create or get existing light
+    light_path = "/World/RandomLight"
+    light_prim = stage.GetPrimAtPath(light_path)
+    if not light_prim:
+        light = UsdLux.SphereLight.Define(stage, light_path)
+    else:
+        light = UsdLux.SphereLight(light_prim)
+    
+    # Randomize intensity
+    intensity = random.uniform(*intensity_range)
+    light.CreateIntensityAttr(intensity)
+    
+    # Randomize color (simplified color temperature to RGB conversion)
+    temp = random.uniform(*color_temperature_range)
+    color = color_temperature_to_rgb(temp)
+    light.CreateColorAttr(Gf.Vec3f(*color))
+    
+    # Randomize position
+    pos = Gf.Vec3f(
+        random.uniform(-5, 5),
+        random.uniform(-5, 5),
+        random.uniform(2, 8)
+    )
+    light.CreatePositionAttr(pos)
+    
+    return light
+
+def color_temperature_to_rgb(temperature):
+    """
+    Convert color temperature in Kelvin to RGB value
+    Simplified approximation
+    """
+    temperature = temperature / 100
+    if temperature <= 66:
+        red = 255
+        green = temperature
+        green = 99.4708025861 * math.log(green) - 161.1195681661
+    else:
+        red = temperature - 60
+        red = 329.698727446 * (red ** -0.1332047592)
+        green = temperature - 60
+        green = 288.1221695283 * (green ** -0.0755148492)
+    
+    if temperature >= 66:
+        blue = 255
+    elif temperature <= 19:
+        blue = 0
+    else:
+        blue = temperature - 10
+        blue = 138.5177312231 * math.log(blue) - 305.0447927307
+    
+    # Clamp values to [0, 255] and normalize to [0, 1]
+    red = max(0, min(255, red)) / 255.0
+    green = max(0, min(255, green)) / 255.0
+    blue = max(0, min(255, blue)) / 255.0
+    
+    return red, green, blue
+```
+
+## Performance Optimization
+
+### Physics Optimization
+
+Optimize physics simulation for better performance:
+
+```python
+def optimize_physics_for_performance():
+    """
+    Optimize physics properties for better simulation performance
+    """
+    # Adjust global physics settings
+    stage = omni.usd.get_context().get_stage()
+    
+    # Get/create physics scene
+    physics_scene_path = "/World/physicsScene"
+    physics_scene = UsdPhysics.Scene.Get(stage, physics_scene_path)
+    if not physics_scene:
+        physics_scene = UsdPhysics.Scene.Define(stage, physics_scene_path)
+    
+    # Optimize solver parameters
+    physics_scene.CreatePositionIterationCountAttr(4)
+    physics_scene.CreateVelocityIterationCountAttr(1)
+    
+    # Other optimization options
+    # physics_scene.CreateEnableCCDAttr(True)  # Enable continuous collision detection if needed
+    # physics_scene.CreateEnableStabilizationAttr(True)  # Enable stabilization for better performance
+    
+    return physics_scene
+```
+
+### Lighting Performance
+
+Balance lighting quality with performance:
+
+1. **Use appropriate light types**: Distant lights are less expensive than area lights
+2. **Limit shadow-casting lights**: Only enable shadows for critical lights
+3. **Optimize light sampling**: Use fewer lights or reduce their complexity
+4. **Use light linking**: Only illuminate relevant objects
+
+## Validation and Testing
+
+### Physics Validation
+
+Validate that physics behave as expected:
+
+```python
+def validate_physics_setup(robot_prim_path, test_scenarios):
+    """
+    Validate physics setup with known test scenarios
+    """
+    from omni.isaac.core import World
+    import numpy as np
+    
+    world = World.instance()
+    
+    # Get the robot
+    robot = world.scene.get_object("test_robot")
+    
+    # Test 1: Basic movement
+    try:
+        initial_pos = robot.get_world_pos()
+        # Apply a known force or command
+        # Check if movement is as expected
+        final_pos = robot.get_world_pos()
+        
+        # Validate basic kinematics
+        print(f"Initial: {initial_pos}, Final: {final_pos}")
+        
+    except Exception as e:
+        print(f"Physics validation failed: {e}")
+        return False
+    
+    return True
+```
+
+### Lighting Validation
+
+For synthetic data generation, validate lighting effects:
+
+```python
+def validate_lighting_effects():
+    """
+    Validate that lighting produces expected visual effects
+    """
+    # Capture images under different lighting conditions
+    # Verify that shadows, highlights, and colors appear realistic
+    # Compare with reference images if available
+    pass
+```
+
+## Troubleshooting Common Issues
+
+### Physics Issues
+
+**Problem**: Robot falls through the ground or objects pass through each other.
+**Solutions**:
+- Ensure collision geometries are properly defined
+- Check that objects have appropriate mass
+- Increase solver iterations for stability
+- Verify that ground plane has infinite collision properties
+
+**Problem**: Robot joints behave erratically.
+**Solutions**:
+- Check joint limits and drive properties
+- Reduce joint stiffness/damping values
+- Increase physics solver iterations
+- Verify correct kinematic chain definition
+
+### Lighting Issues
+
+**Problem**: Scenes appear too dark or too bright.
+**Solutions**:
+- Adjust light intensities
+- Check that USD stage has proper exposure settings
+- Verify that materials respond appropriately to lighting
+
+**Problem**: Long rendering times.
+**Solutions**:
+- Simplify lighting setup
+- Reduce number of shadow-casting lights
+- Use lower resolution for synthetic data generation
+
+## Best Practices
+
+### Physics Configuration Best Practices
+
+1. **Start Simple**: Begin with basic physics properties and increase complexity as needed
+2. **Validate Iteratively**: Test physics behavior at each stage of configuration
+3. **Match Real-World Properties**: Use actual robot and environment properties when known
+4. **Consider Performance**: Balance accuracy with simulation performance requirements
+5. **Document Assumptions**: Keep records of physics assumptions and simplifications
+
+### Lighting Configuration Best Practices
+
+1. **Use HDR Environment Maps**: For realistic outdoor scenes
+2. **Color Temperature Consistency**: Maintain consistent color temperatures for realistic lighting
+3. **Layered Lighting Approach**: Combine multiple light types for complex scenes
+4. **Domain Randomization**: Systematically vary lighting for synthetic data generation
+5. **Performance Validation**: Ensure lighting setup meets frame rate requirements
+
+## Next Steps
+
+With proper physics and lighting configuration, you can:
+
+1. Create more realistic simulation environments
+2. Generate photorealistic synthetic data for training perception models
+3. Validate robot behaviors under various physical conditions
+4. Test navigation and manipulation in challenging lighting conditions
+
+These configurations are essential for bridging the sim-to-real gap and ensuring that models trained in Isaac Sim can be effectively deployed on real robots.

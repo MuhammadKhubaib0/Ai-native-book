@@ -1,0 +1,64 @@
+---
+sidebar_position: 1
+title: "Isaac ROS Perception Overview"
+description: "Introduction to Isaac ROS packages for hardware-accelerated perception"
+---
+
+# Isaac ROS Perception Overview
+
+## Introduction
+
+Isaac ROS is a collection of hardware-accelerated perception and navigation packages designed to run on NVIDIA AI platforms, including Jetson and IGX. These packages provide optimized implementations of common robotics algorithms that leverage GPU acceleration for improved performance compared to standard ROS 2 packages.
+
+The Isaac ROS perception stack includes packages for visual SLAM, stereo vision, object detection, semantic segmentation, and more. These packages are specifically optimized to take advantage of NVIDIA's hardware, including Tensor Cores on modern GPUs.
+
+## Key Isaac ROS Packages
+
+### Isaac ROS Visual SLAM
+- Hardware-accelerated Visual SLAM for pose estimation and mapping
+- Leverages CUDA and TensorRT for performance improvements
+- Outputs 6-DOF pose estimates and sparse maps
+
+### Isaac ROS Stereo Dense Reconstruction
+- Generates dense depth maps from stereo cameras
+- Uses CUDA-accelerated algorithms for real-time performance
+- Outputs dense point clouds for 3D reconstruction
+
+### Isaac ROS Object Detection
+- Hardware-accelerated object detection using TensorRT
+- Support for various neural network architectures (YOLO, SSD, etc.)
+- Outputs bounding boxes, class labels, and confidence scores
+
+### Isaac ROS Image Pipelines
+- Optimized image processing pipelines
+- Hardware-accelerated image format conversions
+- Synchronization and preprocessing for perception tasks
+
+## Architecture and Integration
+
+Isaac ROS packages follow ROS 2 communication patterns and can be integrated with existing ROS 2 systems. They typically subscribe to sensor data topics (like camera images) and publish processed results (like detected objects or depth maps).
+
+Each package is designed to maximize performance on NVIDIA hardware while maintaining compatibility with the broader ROS 2 ecosystem.
+
+## Learning Objectives
+
+After completing this chapter, you will be able to:
+
+- Understand the key Isaac ROS perception packages
+- Configure Isaac ROS nodes for your robot's sensors
+- Integrate Isaac ROS perception with existing ROS 2 systems
+- Compare performance of Isaac ROS packages with standard ROS packages
+
+## Performance Benefits
+
+Isaac ROS packages offer significant performance improvements over standard ROS packages, particularly:
+
+- Up to 5x faster processing for SLAM tasks
+- Real-time semantic segmentation at full camera resolution
+- Efficient object detection suitable for robotics applications
+
+These improvements make Isaac ROS suitable for edge AI applications where compute resources are limited.
+
+## Next Steps
+
+In the following chapters, we'll dive deeper into each of these perception capabilities, starting with Visual SLAM, followed by detailed tutorials on object detection and stereo reconstruction. We'll also cover how to evaluate and tune the performance of these perception packages in your specific application.

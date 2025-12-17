@@ -1,0 +1,261 @@
+---
+sidebar_position: 3
+title: "Robot Import Tutorial"
+description: "Step-by-step guide to importing robot models into Isaac Sim"
+---
+
+# Robot Import Tutorial
+
+## Overview
+
+This tutorial will guide you through the process of importing robot models into NVIDIA Isaac Sim. This is a fundamental task that enables you to simulate and test your robot designs in a photorealistic environment before deploying to real hardware.
+
+By the end of this tutorial, you will be able to:
+- Import robot models in various formats (URDF, USD, etc.)
+- Configure physics properties for your robot
+- Test basic robot movement in Isaac Sim
+
+## Prerequisites
+
+Before starting this tutorial, ensure you have:
+- Isaac Sim installed and running
+- A robot model file (URDF, SDF, or USD format)
+- Basic understanding of robot kinematics and URDF/SDF formats
+
+## Importing a Robot Model
+
+### Method 1: Using URDF Importer (Recommended)
+
+Isaac Sim provides a powerful URDF importer that can directly convert ROS URDF files to Isaac Sim-compatible assets.
+
+#### Step 1: Prepare Your URDF File
+
+Ensure your URDF file is properly formatted and includes all necessary elements:
+
+1. **Links**: Define all rigid bodies of the robot
+2. **Joints**: Define connections between links with proper kinematics
+3. **Collision geometry**: Define collision shapes for physics simulation
+4. **Visual geometry**: Define visual representation of the robot
+5. **Inertial properties**: Define mass, center of mass, and moments of inertia
+
+#### Step 2: Launch Isaac Sim
+
+1. Start Isaac Sim from your installation directory
+2. Wait for the application to load completely
+
+#### Step 3: Import the URDF File
+
+1. Go to "File" > "Import URDF Robot"
+2. Navigate to your URDF file location
+3. Select the file and click "Open"
+4. In the import dialog, specify import parameters:
+   - **Robot Name**: Enter a name for your robot in Isaac Sim
+   - **URDF Path**: Path to your URDF file
+   - **Semantic Robot Path**: Path where the robot will be placed in the USD scene
+   - **Import Materials**: Check to import material properties
+   - **Fix Base Link**: Check if the robot will be fixed in space (for manipulators)
+5. Click "Import" to begin the import process
+
+#### Step 4: Verify the Imported Robot
+
+After import, verify that your robot appears correctly in the viewport:
+1. Check that all links are visible and properly positioned
+2. Verify that joints are correctly connected
+3. Confirm that visual and collision geometries are present
+
+### Method 2: Using USD Files
+
+If you have your robot model already in USD format:
+
+1. Go to "File" > "Open" or "File" > "Import"
+2. Select your USD file
+3. The robot will be loaded into the current stage
+
+## Configuring Physics Properties
+
+### Setting Up Collision and Visual Properties
+
+After importing your robot, you may need to adjust physics properties:
+
+```python
+# Example: Setting collision properties for a robot link
+import omni
+from pxr import UsdPhysics, UsdGeom, Gf
+
+# Get the stage
+stage = omni.usd.get_context().get_stage()
+
+# Get the robot link prim
+link_prim = stage.GetPrimAtPath("/World/MyRobot/LinkName")
+
+# Add collision API to the link
+UsdPhysics.CollisionAPI.Apply(link_prim)
+
+# Set collision approximation
+collision_api = UsdPhysics.CollisionAPI.Get(stage, link_prim.GetPath())
+collision_api.GetApproximationAttr().Set("convexDecomposition")
+```
+
+### Configuring Joint Properties
+
+Properly configure joint limits and drive settings:
+
+1. In the Isaac Sim interface, select the joint in the stage
+2. In the property panel, adjust:
+   - **Lower Limit**: Minimum joint value
+   - **Upper Limit**: Maximum joint value
+   - **Drive Type**: Position, velocity, or effort control
+   - **Stiffness**: Joint stiffness for position control
+   - **Damping**: Joint damping for position control
+
+### Configuring Robot Controllers
+
+To control your robot in simulation:
+
+```python
+# Example: Setting up a differential controller for a mobile robot
+from omni.isaac.core.robots import Robot
+from omni.isaac.core.utils.nucleus import get_assets_root_path
+from omni.isaac.core.utils.stage import add_reference_to_stage
+import numpy as np
+
+# Add the robot to the world
+my_robot = Robot(
+    prim_path="/World/MyRobot",
+    name="my_robot",
+    usd_path="path/to/robot.usd",  # Path to your robot USD
+)
+```
+
+## Testing Robot Movement
+
+### Moving Robot Joints
+
+You can test robot movement through Isaac Sim's interface or through scripting:
+
+**Using the Interface:**
+1. Select the robot in the viewport
+2. In the property panel, find joint properties
+3. Adjust joint values to see movement
+
+**Using Python:**
+```python
+# Example: Moving robot joints
+import omni
+from omni.isaac.core import World
+from omni.isaac.core.utils.stage import add_reference_to_stage
+
+# Get the world instance
+world = World.instance()
+
+# Get your robot
+robot = world.scene.get_object("my_robot")
+
+# Move the robot to a position
+robot.set_world_pose(position=np.array([0, 0, 1.0]))
+
+# Set joint positions (for articulated robots)
+robot.set_joints_default_state(
+    positions=np.array([0.1, 0.2, 0.3, 0.4]),  # Joint position targets
+    velocity_targets=np.array([0.0, 0.0, 0.0, 0.0])  # Joint velocity targets
+)
+```
+
+## Troubleshooting Common Issues
+
+### 1. Import Fails
+
+**Problem**: URDF import fails with error messages.
+
+**Solutions**:
+- Ensure all referenced mesh files exist at the specified paths
+- Verify URDF syntax using `check_urdf` tool in ROS
+- Check that paths in URDF are relative or correctly absolute
+- Ensure all required libraries for URDF parsing are installed
+
+### 2. Robot Appears Broken
+
+**Problem**: Robot links appear separate or incorrectly positioned.
+
+**Solutions**:
+- Verify joint origins and parent-child relationships in URDF
+- Check that joint values are within limits
+- Confirm that mass and inertial properties are defined correctly
+
+### 3. Physics Issues
+
+**Problem**: Robot falls through the ground or has unstable simulation.
+
+**Solutions**:
+- Ensure collision geometries are properly defined
+- Check that mass values are positive and realistic
+- Verify that ground plane exists and has appropriate material properties
+
+### 4. Visual Geometry vs Collision Geometry
+
+**Problem**: Robot appears in wrong position or has unexpected collision behavior.
+
+**Solutions**:
+- Verify that visual and collision geometries have correct origins relative to link frames
+- Check that both visual and collision properties are specified in URDF
+
+## Best Practices
+
+### 1. Preparation Before Import
+
+- Simplify meshes for better simulation performance
+- Ensure proper scaling (meters in Isaac Sim)
+- Verify that kinematic chains are properly defined
+
+### 2. Testing After Import
+
+- Check kinematic chain integrity
+- Test all joint limits
+- Validate physics behavior with simple movements
+- Verify sensor positions if your robot has sensors
+
+### 3. Optimization
+
+- Use convex hull approximation for collision geometry for faster physics
+- Keep mesh complexity reasonable for real-time performance
+- Consider using proxy shapes for collision instead of full visual geometry
+
+## Advanced Configuration
+
+### Adding Sensors
+
+If your robot has sensors, add them after import:
+
+```python
+# Example: Adding a camera sensor to the robot
+from omni.isaac.sensor import Camera
+
+# Create a camera attached to a robot link
+camera = Camera(
+    prim_path="/World/MyRobot/Camera",
+    frequency=20,
+    resolution=(640, 480)
+)
+camera.set_focal_length(24.0)
+camera.set_horizontal_aperture(20.955)
+camera.set_vertical_aperture(15.2908)
+```
+
+### Configuring Materials
+
+Enhance visual quality with proper materials:
+
+1. In the Material Gallery, find or create appropriate materials
+2. Apply materials to robot parts in the viewport
+3. Adjust material properties like roughness and metallic values
+
+## Next Steps
+
+After successfully importing and configuring your robot, you can proceed to:
+
+1. Create more complex environments for testing
+2. Configure sensors on your robot for perception tasks
+3. Set up ROS 2 bridges to control your robot from external applications
+4. Implement perception and navigation algorithms in simulation before real-world deployment
+
+This tutorial provides the foundation for working with your own robot models in Isaac Sim. As you become more comfortable with the import process, you can explore more advanced features of Isaac Sim for complex robotic simulation and development.

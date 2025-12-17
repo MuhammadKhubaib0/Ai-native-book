@@ -1,0 +1,28 @@
+graph TD
+    A[arm_base] --> B[shoulder_link]
+    B --> C[upper_arm_link]
+    C --> D[forearm_link]
+    D --> E[wrist_link]
+    E --> F[gripper_base]
+    F --> G[left_gripper]
+    F --> H[right_gripper]
+    
+    subgraph "Humanoid Arm - Kinematic Chain"
+        A
+        B
+        C
+        D
+        E
+        F
+        G
+        H
+    end
+    
+    style A fill:#cde4ff
+    style B fill:#cde4ff
+    style C fill:#cde4ff
+    style D fill:#cde4ff
+    style E fill:#cde4ff
+    style F fill:#cde4ff
+    style G fill:#cde4ff
+    style H fill:#cde4ff
