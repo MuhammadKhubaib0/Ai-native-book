@@ -13,7 +13,7 @@ const config = {
   url: 'https://your-book-url.com',
   // Set the /<base>/ pathname under which your site is served
   // For GitHub Pages deployment, this is often '/<projectName>/'
-  baseUrl: '/physical-ai-textbook/',
+  baseUrl: '/',
 
   // GitHub pages deployment config.
   organizationName: 'your-org', // Usually your GitHub org/user name.
@@ -111,11 +111,11 @@ const config = {
               },
               {
                 label: 'Module 3: NVIDIA Isaac',
-                to: '/docs/module3-isaac/intro',
+                to: '/docs/module3-isaac/isaac-sim/overview',
               },
               {
                 label: 'Module 4: VLA',
-                to: '/docs/module4-vla/intro',
+                to: '/docs/module4-vla/voice-to-action',
               },
             ],
           },
